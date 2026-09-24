@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Edit' if listing else 'Add' }} Listing — PresyoWatch{% endblock %}
+{% block content %}
+<h4 class="page-title">{{ 'Edit Listing' if listing else 'Add Listing' }}</h4>
+<form method="POST" class="pw-card">
+  <div class="field"><label class="form-label">Item name</label>
+    <input class="input-pw" name="name" value="{{ listing.name if listing else '' }}" placeholder="e.g. White Rice (Dinorado)" required maxlength="100"></div>
+  <div class="field"><label class="form-label">Category</label>
+    <select class="input-pw" name="category">
+      {% for c in categories %}<option {{ 'selected' if listing and listing.category == c }}>{{ c }}</option>{% endfor %}
+    </select></div>
+  <div class="row g-2">
+    <div class="col-7 field"><label class="form-label">Price</label>
+      <input class="input-pw" type="number" step="0.01" min="0.01" name="price" value="{{ listing.price if listing else '' }}" placeholder="₱" required></div>
+    <div class="col-5 field"><label class="form-label">Unit</label>
+      <input class="input-pw" name="unit" value="{{ listing.unit if listing else 'kg' }}"></div>
+  </div>
+  <div class="field"><label class="form-label">Stock</label>
+    <select class="input-pw" name="stock_status">
+      {% for v, t in [('in_stock', 'In Stock'), ('low_stock', 'Low Stock'), ('out_of_stock', 'Out of Stock')] %}
+        <option value="{{ v }}" {{ 'selected' if listing and listing.stock_status == v }}>{{ t }}</option>
+      {% endfor %}
+    </select></div>
+  <div class="field"><label class="form-label">Tracked commodity (optional)</label>
+    <select class="input-pw" name="product_id">
+      <option value="">— none —</option>
+      {% for p in products %}<option value="{{ p.product_id }}" {{ 'selected' if listing and listing.product_id == p.product_id }}>{{ p.product_name }}</option>{% endfor %}
+    </select>
+    <div class="small-note mt-1">Linking a tracked commodity lets your price be checked against the DTI SRP and market average.</div>
+  </div>
+  <button class="btn-pw btn-block" type="submit">Save Listing</button>
+</form>
+<a class="btn-pale btn-block" href="{{ url_for('vendor.listings') }}">Cancel</a>
+{% endblock %}

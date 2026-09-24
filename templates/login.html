@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% from "_ui.html" import brand %}
+{% set hide_nav = true %}
+{% block title %}Login — PresyoWatch{% endblock %}
+{% block content %}
+<h1 class="auth-title">Welcome Back!</h1>
+<div class="auth-sub">Sign in to your PresyoWatch account</div>
+
+<form method="POST" class="pw-card white">
+  {{ brand() }}
+  <div class="small fw-bold text-uppercase mb-2" style="letter-spacing:.04em">Login as</div>
+  <label class="role-option" style="padding:10px 16px;align-items:center">
+    <input type="radio" name="login_as" value="resident" checked>
+    <i class="fa-solid fa-user"></i><b class="ms-1">Resident/Consumer</b>
+  </label>
+  <label class="role-option" style="padding:10px 16px;align-items:center">
+    <input type="radio" name="login_as" value="vendor">
+    <i class="fa-solid fa-star"></i><b class="ms-1">Market Vendor</b>
+  </label>
+  <div class="small text-muted mb-3" style="margin-top:-6px">LGU / DTI-DA staff and admins: pick either option.</div>
+
+  <div class="field"><input class="input-pw" type="email" name="email" placeholder="Email address" required autocomplete="email"></div>
+  <div class="field"><input class="input-pw" type="password" name="password" placeholder="Password" required autocomplete="current-password"></div>
+  <div class="text-end small mb-3"><a href="{{ url_for('auth.forgot_password') }}" class="text-muted">Forgot Password?</a></div>
+
+  <button class="btn-pw btn-block" type="submit">Login to PresyoWatch</button>
+  <div class="text-center text-muted my-2">or</div>
+  <div class="text-center"><a href="{{ url_for('public.scan') }}" class="fw-bold text-decoration-none">Scan QR to browse without login</a></div>
+</form>
+<div class="text-center small text-dark">Don't have an account? <a href="{{ url_for('auth.register') }}" class="fw-bold text-dark ms-1">Sign Up</a></div>
+{% endblock %}

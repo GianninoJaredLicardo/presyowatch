@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Manage Prices — PresyoWatch{% endblock %}
+{% block content %}
+<h4 class="page-title">Manage Prices</h4>
+
+{% for l in listings %}
+<div class="pw-card list-card">
+  <div class="d-flex justify-content-between align-items-center gap-2">
+    <div>
+      <div class="name">{{ l.name }}</div>
+      <small class="fst-italic text-muted">Updated: {{ l.updated_at|timeago }}</small>
+    </div>
+    <div class="price fs-5">₱{{ l.price|peso }}</div>
+  </div>
+  <form method="POST" action="{{ url_for('vendor.update_price', listing_id=l.listing_id) }}" class="d-flex gap-2 mt-2">
+    <input class="input-pw" type="number" step="0.01" min="0.01" name="price" value="{{ l.price }}" style="padding:7px 14px" required>
+    <button class="btn-pw btn-sm-pw" type="submit">Update</button>
+  </form>
+</div>
+{% else %}
+<div class="pw-card text-center text-muted">Add listings first, then manage their prices here.</div>
+{% endfor %}
+
+{% if listings %}<a class="btn-pw-outline btn-block" href="{{ url_for('vendor.bulk_prices') }}" style="padding:14px;border-radius:16px">Bulk Price Update</a>{% endif %}
+{% endblock %}

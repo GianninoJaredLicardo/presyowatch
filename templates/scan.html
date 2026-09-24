@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% set hide_nav = true %}
+{% block title %}QR Scanner — PresyoWatch{% endblock %}
+{% block content %}
+<div class="d-flex align-items-center gap-3 mb-3">
+  <a href="javascript:history.length > 1 ? history.back() : (location.href='{{ url_for('public.home') }}')" class="btn-pw btn-sm-pw"><i class="fa-solid fa-arrow-left"></i></a>
+  <b class="small text-uppercase">QR Scanner</b>
+</div>
+
+<div class="scanner-view">
+  <div class="scanner-frame"></div>
+  <div id="reader"></div>
+  <div class="scanner-hint" id="hint"><i class="fa-solid fa-camera"></i><br>Point camera at QR</div>
+</div>
+<div class="text-center my-3"><span class="pill-note" id="status">Align QR code within the frame</span></div>
+
+<div class="text-center">
+  <button class="btn-yellow" id="scanBtn" type="button"><i class="fa-solid fa-magnifying-glass"></i> SCAN NOW</button>
+  <div class="text-dark my-2">or</div>
+  <label class="btn-pw-outline btn-sm-pw" style="color:#5b4a14;border-color:#7a6a2c">
+    Upload QR code image
+    <input type="file" id="fileInput" accept="image/*" hidden>
+  </label>
+</div>
+<div id="reader-file" hidden></div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script>
+const statusEl = document.getElementById('status');
+const hint = document.getElementById('hint');
+let scanner = null;
+
+// Only follow QR codes that point back to this site (prevents open redirects).
+function handle(text) {
+  try {
+    const url = new URL(text, location.origin);
+    if (url.origin === location.origin) { location.href = url.href; return; }
+  } catch (e) {}
+  statusEl.textContent = 'Not a PresyoWatch QR code';
+}
+
+document.getElementById('scanBtn').addEventListener('click', async () => {
+  if (typeof Html5Qrcode === 'undefined') { statusEl.textContent = 'Scanner failed to load. Check your connection.'; return; }
+  if (scanner) return;
+  scanner = new Html5Qrcode('reader');
+  try {
+    await scanner.start({ facingMode: 'environment' }, { fps: 10, qrbox: 220 },
+      text => { scanner.stop().catch(() => {}); handle(text); });
+    hint.style.display = 'none';
+    statusEl.textContent = 'Scanning…';
+  } catch (err) {
+    scanner = null;
+    statusEl.textContent = 'Camera unavailable — allow camera access or upload an image instead.';
+  }
+});
+
+document.getElementById('fileInput').addEventListener('change', async e => {
+  const file = e.target.files[0];
+  if (!file || typeof Html5Qrcode === 'undefined') return;
+  try {
+    const text = await new Html5Qrcode('reader-file').scanFile(file, false);
+    handle(text);
+  } catch (err) { statusEl.textContent = 'No QR code found in that image.'; }
+});
+</script>
+{% endblock %}

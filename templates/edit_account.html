@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Edit Profile — PresyoWatch{% endblock %}
+{% block content %}
+{% set u = nav_current_user %}
+<h4 class="page-title">Edit Profile</h4>
+<form method="POST" class="pw-card">
+  <div class="field"><label class="form-label">{{ 'Owner name' if u.role == 'vendor' else 'Full name' }}</label>
+    <input class="input-pw" name="full_name" value="{{ u.full_name }}" required></div>
+  <div class="field"><label class="form-label">Email</label>
+    <input class="input-pw" type="email" name="email" value="{{ u.email }}" required></div>
+  <div class="field"><label class="form-label">Contact number</label>
+    <input class="input-pw" name="contact_number" value="{{ u.contact_number or '' }}"></div>
+
+  {% if u.role == 'vendor' %}
+    <div class="field"><label class="form-label">Business name</label>
+      <input class="input-pw" name="business_name" value="{{ u.business_name or '' }}" required></div>
+    <div class="field"><label class="form-label">Business address</label>
+      <input class="input-pw" name="business_address" value="{{ u.business_address or '' }}"></div>
+    <div class="field"><label class="form-label">Market</label>
+      <select class="input-pw" name="market_id" required>
+        {% for m in markets %}<option value="{{ m.market_id }}" {{ 'selected' if u.market_id == m.market_id }}>{{ m.market_name }} — {{ m.city }}</option>{% endfor %}
+      </select></div>
+  {% else %}
+    {% if u.role in ['lgu_staff', 'dti_da'] %}
+      <div class="field"><label class="form-label">Organization</label>
+        <input class="input-pw" name="org_name" value="{{ u.org_name or '' }}"></div>
+      <div class="field"><label class="form-label">Division</label>
+        <input class="input-pw" name="division" value="{{ u.division or '' }}"></div>
+      <div class="field"><label class="form-label">Contact person / title</label>
+        <input class="input-pw" name="contact_person" value="{{ u.contact_person or '' }}"></div>
+    {% endif %}
+    <div class="field"><label class="form-label">Location</label>
+      <input class="input-pw" name="address" value="{{ u.address or '' }}"></div>
+    <div class="field"><label class="form-label">City</label>
+      <select class="input-pw" name="city">
+        <option value="">—</option>
+        {% for c in ['Cebu City', 'Lapu-Lapu City'] %}<option {{ 'selected' if u.city == c }}>{{ c }}</option>{% endfor %}
+      </select></div>
+  {% endif %}
+  <button class="btn-pw btn-block" type="submit">Save Changes</button>
+</form>
+{% endblock %}

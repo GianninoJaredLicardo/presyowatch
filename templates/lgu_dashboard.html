@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% from "_ui.html" import stat %}
+{% block title %}LGU Home — PresyoWatch{% endblock %}
+{% block content %}
+{% set u = nav_current_user %}
+<div class="pw-card mt-3 position-relative">
+  <span class="pill" style="position:absolute;right:16px;top:14px;background:#e0d55e">{{ plan.name|upper }}</span>
+  <div class="ms-2 mb-3">
+    <div>Welcome Back,</div>
+    <h4 style="color:#0f6b33;margin:0;font-weight:800">{{ u.org_name or u.full_name }} 🏛️</h4>
+    <div class="small text-secondary">{{ u.division or ('Cebu City' if not u.city else u.city) }}</div>
+  </div>
+  <div class="stat-row c4">
+    {{ stat(pending_count, 'Pending') }}
+    {{ stat(alert_count, 'Alerts') }}
+    {{ stat(vendor_count, 'Vendors') }}
+    {{ stat(verified_count, 'Verified') }}
+  </div>
+</div>
+
+{% if spike %}
+<div class="spike-card center">
+  <div class="title">Price Spike Detected!</div>
+  <p>{{ spike.product_name }} at {{ spike.market_name }}: ₱{{ spike.reported_price|peso }}<br>
+     — {{ '%.0f'|format(spike.spike_percent or 0) }}% above normal ({{ spike.status }})</p>
+  <div class="d-flex justify-content-around">
+    {% if spike.status == 'open' %}
+    <form method="POST" action="{{ url_for('lgu.acknowledge_alert', alert_id=spike.alert_id) }}"><button class="btn-yellow btn-sm-pw" type="submit">Acknowledge</button></form>
+    {% else %}
+    <form method="POST" action="{{ url_for('lgu.resolve_alert', alert_id=spike.alert_id) }}"><button class="btn-yellow btn-sm-pw" type="submit">Resolve</button></form>
+    {% endif %}
+    <a class="btn-danger-soft btn-sm-pw" style="background:#c9584f" href="{{ url_for('lgu.report_detail', report_id=spike.report_id) }}">View Details</a>
+  </div>
+</div>
+{% else %}
+<div class="pw-card text-center"><b style="color:var(--title)">No active price spikes. 🎉</b></div>
+{% endif %}
+
+<h5 class="page-title">Recent Activity</h5>
+<div class="pw-card tint">
+  {% for text, when in events %}
+  <div class="py-2"><div class="fw-semibold">{{ text }}</div><small class="fst-italic text-muted">{{ when|timeago }}</small></div>
+  {% else %}<div class="text-muted text-center">No recent activity.</div>{% endfor %}
+</div>
+{% endblock %}

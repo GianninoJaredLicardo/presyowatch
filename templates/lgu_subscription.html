@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block title %}Subscription — PresyoWatch{% endblock %}
+{% block content %}
+<h4 class="page-title">Subscription</h4>
+
+<div class="pw-card dark" style="border:1.5px solid #222;background:#8fb281">
+  <div class="d-flex justify-content-between"><small>Current Plan</small>
+    <span class="pill" style="border-color:#222">{{ 'Active' if sub.status == 'active' else 'Cancelled' }}</span></div>
+  <h2 class="fw-bold mb-0" style="color:#fff">{{ plan.name }}</h2>
+  <div class="fs-4 fw-bold" style="color:var(--yellow)">₱{{ '{:,}'.format(plan.price) }} <small class="fs-6">/{{ plan.period }}</small></div>
+  <div class="d-flex justify-content-between small mt-3"><span>Billing cycle</span><b>{{ days_left }} days left</b></div>
+  <div class="progress-pw"><span style="width:{{ elapsed_pct }}%;background:var(--yellow)"></span></div>
+  <div class="small mt-1" style="opacity:.8">Renews {{ sub.renews_at|localtime('%b %d, %Y') }}</div>
+  <div class="d-flex justify-content-between mt-3">
+    <button class="btn-pw-outline" type="button" data-bs-toggle="collapse" data-bs-target="#plans">Upgrade Plan</button>
+    <form method="POST" action="{{ url_for('lgu.renew_subscription') }}"><button class="btn-yellow" type="submit">Renew Now</button></form>
+  </div>
+</div>
+
+<div class="collapse" id="plans">
+  <div class="pw-card">
+    <div class="card-title">Choose a plan</div>
+    {% for key, p in plans.items() %}
+    <form method="POST" action="{{ url_for('lgu.change_plan') }}" class="row-line">
+      <input type="hidden" name="plan" value="{{ key }}">
+      <div><b>{{ p.name }}</b><br><small class="text-muted">₱{{ '{:,}'.format(p.price) }}/{{ p.period }}</small></div>
+      {% if key == sub.plan %}<span class="pill green">Current</span>{% else %}<button class="btn-pw btn-sm-pw" type="submit">Switch</button>{% endif %}
+    </form>
+    {% endfor %}
+    <div class="small-note mt-2">Payments are simulated in this build — no real charge is made.</div>
+  </div>
+</div>
+
+<div class="pw-card mt-3">
+  <div class="card-title" style="font-size:1.15rem">Your Plan Includes</div>
+  <div class="row">
+    {% for f in plan.features %}<div class="col-6 small mb-2"><i class="fa-solid fa-check" style="color:var(--primary)"></i> {{ f }}</div>{% endfor %}
+  </div>
+  {% if plan.excluded %}
+  <hr>
+  <div class="d-flex justify-content-between align-items-center"><b style="color:var(--title)">Not included in {{ plan.name }}</b>{% if plan.excluded %}<span class="pill pending" style="font-size:.65rem">Upgrade</span>{% endif %}</div>
+  {% for f in plan.excluded %}<div class="small mt-1 text-muted"><i class="fa-solid fa-xmark"></i> {{ f }}</div>{% endfor %}
+  {% endif %}
+</div>
+
+<h5 class="page-title sm">Usage This {{ plan.period|title }}</h5>
+<div class="pw-card tint">
+  {% for u in usage %}
+  <div class="mb-3">
+    <div class="d-flex justify-content-between small"><span class="fst-italic">{{ u.label }}</span>
+      <span>{{ '{:,}'.format(u.value) }}{% if u.limit %} / {{ u.limit }}{% else %} · Unlimited{% endif %}</span></div>
+    <div class="progress-pw"><span style="width:{{ u.pct }}%"></span></div>
+  </div>
+  {% endfor %}
+</div>
+
+<h5 class="page-title sm">Billing History</h5>
+<div class="pw-card tint">
+  {% for b in history %}
+  <div class="row-line small"><span>{{ b.description }}<br><small class="text-muted">{{ b.created_at|localtime('%b %d, %Y') }}</small></span>
+    <span class="d-flex gap-2 align-items-center"><b class="price">₱{{ '{:,}'.format(b.amount|int) }}</b><span class="pill green">Paid</span></span></div>
+  {% else %}<div class="text-muted text-center">No billing yet.</div>{% endfor %}
+</div>
+
+<h5 class="page-title sm">Payment Method</h5>
+<div class="pw-card tint">
+  <div class="pw-card white mb-3" style="padding:14px 16px">
+    {% if sub.payment_type %}
+      <div class="d-flex align-items-center gap-3">
+        <span class="fw-bold" style="color:#1a56c4;font-size:1.2rem;font-style:italic">{{ sub.payment_label|upper }}</span>
+        <div class="small">{% if sub.payment_last4 %}•••• •••• •••• {{ sub.payment_last4 }}{% else %}Linked{% endif %}
+          {% if sub.payment_expiry %}<br><small class="text-muted fst-italic">Expires {{ sub.payment_expiry }}</small>{% endif %}</div>
+      </div>
+    {% else %}<div class="text-muted small">No payment method on file.</div>{% endif %}
+  </div>
+  <form method="POST" action="{{ url_for('lgu.update_payment') }}">
+    <div class="chips">
+      {% for v, t in [('card', 'Card'), ('gcash', 'GCash'), ('maya', 'Maya'), ('bank', 'Bank Transfer')] %}
+      <label class="chip {{ 'active' if (sub.payment_type or 'card') == v }}"><input type="radio" name="payment_type" value="{{ v }}" hidden {{ 'checked' if (sub.payment_type or 'card') == v }}
+        onchange="document.querySelectorAll('#payChips .chip, .chips .chip').forEach(c => c.classList.remove('active')); this.parentNode.classList.add('active'); document.getElementById('cardFields').style.display = this.value === 'card' ? 'flex' : 'none'"> {{ t }}</label>
+      {% endfor %}
+    </div>
+    <div class="row g-2 mb-2" id="cardFields" style="display:{{ 'flex' if (sub.payment_type or 'card') == 'card' else 'none' }}">
+      <div class="col-6"><input class="input-pw" name="last4" placeholder="Last 4 digits" maxlength="4" pattern="\d{4}" inputmode="numeric"></div>
+      <div class="col-6"><input class="input-pw" name="expiry" placeholder="MM/YY" maxlength="5"></div>
+    </div>
+    <button class="btn-pw btn-sm-pw" type="submit">Change</button>
+  </form>
+</div>
+
+<form method="POST" action="{{ url_for('lgu.cancel_subscription') }}" onsubmit="return confirm('Cancel your subscription?')">
+  <button class="btn-block border-0 text-white py-3" style="background:#8b4a3a;border-radius:10px;box-shadow:0 3px 6px rgba(0,0,0,.2)" type="submit">Cancel Subscription</button>
+</form>
+{% endblock %}

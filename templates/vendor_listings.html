@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% from "_ui.html" import status_pill %}
+{% block title %}My Listings — PresyoWatch{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mt-3">
+  <h4 class="page-title mb-0 mt-2">My Listings</h4>
+  <a class="btn-pw btn-sm-pw" href="{{ url_for('vendor.listing_form') }}">+ Add</a>
+</div>
+
+<form method="GET" class="field mt-3"><input class="input-pw" type="search" name="q" value="{{ q }}" placeholder="Search listings…"></form>
+
+{% for l in listings %}
+<div class="pw-card list-card position-relative">
+  <a class="edit-btn" href="{{ url_for('vendor.listing_form', listing_id=l.listing_id) }}" title="Edit"><i class="fa-regular fa-pen-to-square"></i></a>
+  <div class="name">{{ l.name }}</div>
+  <div class="meta">{{ l.category }}</div>
+  <div class="d-flex justify-content-between align-items-center mt-2">
+    <span class="price fs-5">₱{{ l.price|peso }}/{{ l.unit }}</span>
+    <div class="d-flex gap-2 align-items-center">
+      {{ status_pill(l.stock_status) }}
+      <form method="POST" action="{{ url_for('vendor.delete_listing', listing_id=l.listing_id) }}" onsubmit="return confirm('Remove this listing?')">
+        <button class="pill red border-0" title="Remove">X</button>
+      </form>
+    </div>
+  </div>
+</div>
+{% else %}
+<div class="pw-card text-center text-muted">No listings yet. Tap <b>+ Add</b> to post your first price.</div>
+{% endfor %}
+{% endblock %}

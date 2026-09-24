@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% from "_ui.html" import stat, arrow %}
+{% block title %}Home — PresyoWatch{% endblock %}
+{% block content %}
+<div class="pw-card mt-3">
+  <div class="ms-2">
+    <div>Good day,</div>
+    <h4 style="color:#0f6b33;margin:0">{{ nav_current_user.full_name }}</h4>
+    <div class="small text-secondary mb-3">{{ nav_current_user.city or 'Philippines' }}{% if nav_current_user.address %} · {{ nav_current_user.address }}{% endif %}</div>
+  </div>
+  <div class="stat-row c3">
+    {{ stat(report_count, 'Reports') }}
+    {{ stat(alert_count, 'Alerts') }}
+    {{ stat(changes, 'Changes') }}
+  </div>
+</div>
+
+<a href="{{ url_for('public.scan') }}" class="pw-card d-flex align-items-center gap-3 text-decoration-none">
+  <i class="fa-solid fa-qrcode" style="font-size:3rem;color:#333"></i>
+  <div>
+    <div class="fw-bold" style="color:#0f6b33;font-size:1.1rem">Scan QR to track prices</div>
+    <div class="small fst-italic text-muted">Tap to scan any market QR code</div>
+  </div>
+</a>
+
+<h5 class="page-title sm">Today's Market Prices</h5>
+<div class="pw-card tint">
+  {% for row in board %}
+  <div class="row-line">
+    <span>{{ row.name }} <small class="text-muted">(per {{ row.unit }})</small></span>
+    <span class="price {{ row.direction or '' }}">₱{{ row.price|peso }} {{ arrow(row.direction) }}</span>
+  </div>
+  {% else %}
+  <div class="text-muted text-center">No price data yet.</div>
+  {% endfor %}
+  <div class="text-end mt-2"><a class="small" href="{{ url_for('resident.price_history') }}">View price trends &rarr;</a></div>
+</div>
+
+<h5 class="page-title sm">Recent Activity</h5>
+<div class="pw-card tint">
+  {% for icon, text, when in events %}
+  <div class="d-flex gap-3 py-2">
+    <i class="fa-solid fa-{{ {'check': 'check', 'xmark': 'xmark', 'alert': 'triangle-exclamation'}[icon] }}" style="color:{{ '#c0392b' if icon != 'check' else '#467348' }};margin-top:4px"></i>
+    <div><div>{{ text }}</div><small class="text-muted fst-italic">{{ when|timeago }}</small></div>
+  </div>
+  {% else %}
+  <div class="text-muted text-center">Nothing yet — submit a price report to get started.</div>
+  {% endfor %}
+</div>
+{% endblock %}

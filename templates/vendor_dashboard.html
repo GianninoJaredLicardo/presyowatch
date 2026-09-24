@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% from "_ui.html" import stat, verified, status_pill, stars %}
+{% block title %}Home — PresyoWatch{% endblock %}
+{% block content %}
+{% set u = nav_current_user %}
+<div class="pw-card mt-3">
+  <div class="ms-2 mb-3">
+    <div>Welcome back,</div>
+    <h4 style="color:#0f6b33;margin:0">{{ u.business_name or u.full_name }}</h4>
+    <div class="small text-secondary">{{ market.market_name if market else '' }}{% if u.business_address %} · {{ u.business_address }}{% endif %}</div>
+    <div class="mt-2">{% if u.is_verified_vendor %}{{ verified() }}{% elif u.vendor_status == 'pending' %}<span class="pill pending">Verification pending</span>{% endif %}</div>
+  </div>
+  <div class="stat-row c3">
+    {{ stat(listings|length, 'Listings') }}
+    {{ stat(stats.rating if stats.rating is not none else '—', 'Rating') }}
+    {{ stat(scans, 'Scans / week') }}
+  </div>
+</div>
+
+{% if not u.is_verified_vendor %}
+<div class="spike-card warn center">
+  <div class="title" style="font-size:1.05rem">Get your Verified badge</div>
+  <p style="color:#5b5a12">Keep your prices up to date. Your LGU reviews new vendors and grants the badge.</p>
+</div>
+{% endif %}
+
+<div class="stat-row c2 mb-3">
+  <a class="btn-pw" href="{{ url_for('vendor.listing_form') }}"><i class="fa-solid fa-plus"></i> Add Listing</a>
+  <a class="btn-pale" href="{{ url_for('vendor.bulk_prices') }}"><i class="fa-solid fa-pen"></i> Bulk Update</a>
+</div>
+
+<h5 class="page-title sm">Needs Attention</h5>
+<div class="pw-card tint">
+  {% for l in needs_attention %}
+  <div class="row-line"><span>{{ l.name }}</span>{{ status_pill(l.stock_status) }}</div>
+  {% else %}<div class="text-muted text-center">All listings are in stock.</div>{% endfor %}
+</div>
+
+<h5 class="page-title sm">Latest Feedback</h5>
+<div class="pw-card tint">
+  {% for r in reviews %}
+  <div class="py-2"><div class="d-flex justify-content-between"><b>{{ r.user_name }}</b>{{ stars(r.rating) }}</div><div class="small">{{ r.comment }}</div></div>
+  {% else %}<div class="text-muted text-center">No reviews yet. Share your QR code so customers can find you!</div>{% endfor %}
+  <div class="text-end"><a class="small" href="{{ url_for('vendor.feedback') }}">All feedback &rarr;</a></div>
+</div>
+{% endblock %}

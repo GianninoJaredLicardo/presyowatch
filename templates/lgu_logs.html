@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}System Logs — PresyoWatch{% endblock %}
+{% block content %}
+<h4 class="page-title">System Logs</h4>
+<div class="pw-card tint">
+  {% for l in entries %}
+  <div class="row-line small">
+    <div><b>{{ l.action.replace('_', ' ')|title }}</b>{% if l.detail %} — {{ l.detail }}{% endif %}<br><span class="text-muted">{{ l.user_name or 'System' }}</span></div>
+    <small class="text-muted text-nowrap">{{ l.created_at|localtime('%b %d, %I:%M %p') }}</small>
+  </div>
+  {% else %}<div class="text-muted text-center">No activity logged yet.</div>{% endfor %}
+</div>
+<a class="btn-pale btn-block" href="{{ url_for('lgu.profile') }}">&larr; Back to Profile</a>
+{% endblock %}

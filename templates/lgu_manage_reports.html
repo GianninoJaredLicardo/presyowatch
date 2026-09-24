@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}Alerts & Reports — PresyoWatch{% endblock %}
+{% block content %}
+{% set tab = 'reports' %}
+{% include "_manage_tabs.html" %}
+
+<h4 class="page-title">Price Alerts &amp; Reports</h4>
+
+{% for a in alerts %}
+<div class="spike-card {{ '' if (a.severity == 'high' or a.status == 'escalated') else 'warn' }}">
+  <div class="title">⚠ {{ a.product_name }} Price Spike</div>
+  <div class="small ms-3">{{ a.market_name }} · <span class="text-uppercase">{{ a.status }}</span></div>
+  <div class="spike-grid">
+    <div class="cell">Reported<b class="red">₱{{ a.reported_price|peso }}/kg</b></div>
+    <div class="cell">Average<b>₱{{ a.baseline|peso }}/kg</b></div>
+    <div class="cell">Spike<b class="red">+{{ '%.0f'|format(a.spike_percent or 0) }}%</b></div>
+  </div>
+  <div class="spike-actions">
+    <form method="POST" action="{{ url_for('lgu.acknowledge_alert', alert_id=a.alert_id) }}"><button class="btn-tiny y w-100" {{ 'disabled' if a.status != 'open' }}>Acknowledge</button></form>
+    <form method="POST" action="{{ url_for('lgu.resolve_alert', alert_id=a.alert_id) }}"><button class="btn-tiny g w-100">Resolve</button></form>
+    <form method="POST" action="{{ url_for('lgu.escalate_alert', alert_id=a.alert_id) }}"><button class="btn-tiny r w-100" {{ 'disabled' if a.status == 'escalated' }}>Escalate</button></form>
+  </div>
+</div>
+{% else %}
+<div class="pw-card text-center text-muted">No open alerts. 🎉</div>
+{% endfor %}
+
+<h5 class="page-title">Generate Report</h5>
+<form method="POST" action="{{ url_for('lgu.generate_report') }}" class="pw-card" style="background:#dbe6cc" id="genForm">
+  <div class="chips" id="periodChips">
+    {% for p in ['daily', 'weekly', 'monthly', 'custom'] %}
+    <label class="chip {{ 'active' if p == 'weekly' }}"><input type="radio" name="period" value="{{ p }}" hidden {{ 'checked' if p == 'weekly' }}> {{ p|title }}</label>
+    {% endfor %}
+  </div>
+  <div class="row g-2 mb-3" id="dateRow" style="display:none">
+    <div class="col-6"><input class="input-pw" type="date" name="date_from" value="{{ today }}" max="{{ today }}"></div>
+    <div class="col-6"><input class="input-pw" type="date" name="date_to" value="{{ today }}" max="{{ today }}"></div>
+  </div>
+  <div class="field">
+    <select class="input-pw" name="market_id">
+      <option value="">All markets</option>
+      {% for m in markets %}<option value="{{ m.market_id }}">{{ m.market_name }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="chips justify-content-center" id="typeChips">
+    {% for v, t in [('pdf', 'PDF'), ('csv', 'CSV'), ('xlsx', 'EXCEL')] %}
+    <label class="chip {{ 'active' if v == 'pdf' }}" style="border-radius:8px;padding:8px 22px"><input type="radio" name="file_type" value="{{ v }}" hidden {{ 'checked' if v == 'pdf' }}> {{ t }}</label>
+    {% endfor %}
+  </div>
+  <div class="switch-row"><span>Auto-send to DTI/DA</span>
+    <label class="switch"><input type="checkbox" name="auto_send"><span class="track"></span></label></div>
+  <button class="btn-pw btn-block" style="border-radius:10px;text-transform:uppercase;letter-spacing:.03em" type="submit">Generate Report</button>
+</form>
+
+<h5 class="page-title">Generated Reports</h5>
+<div class="pw-card tint">
+  {% for e in exports %}
+  <div class="row-line">
+    <div class="d-flex gap-3 align-items-center">
+      <i class="fa-regular fa-file-lines fs-3 text-secondary"></i>
+      <div><div class="small fw-semibold">{{ e.title or e.file_path }}</div>
+        <small class="text-muted fst-italic">{{ e.file_type|upper }} · {{ '%.1f'|format(e.size_bytes / 1024) }}KB{% if e.shared_with_agency %} · shared with DTI/DA{% endif %}</small></div>
+    </div>
+    <a href="{{ url_for('lgu.download_report', export_id=e.export_id) }}" class="text-secondary fs-5" title="Download"><i class="fa-solid fa-download"></i></a>
+  </div>
+  {% else %}<div class="text-muted text-center">No reports generated yet.</div>{% endfor %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function bindChips(groupId, onChange) {
+  document.querySelectorAll('#' + groupId + ' input').forEach(inp => inp.addEventListener('change', () => {
+    document.querySelectorAll('#' + groupId + ' .chip').forEach(c => c.classList.remove('active'));
+    inp.parentNode.classList.add('active');
+    if (onChange) onChange(inp.value);
+  }));
+}
+bindChips('periodChips', v => document.getElementById('dateRow').style.display = v === 'custom' ? 'flex' : 'none');
+bindChips('typeChips');
+</script>
+{% endblock %}

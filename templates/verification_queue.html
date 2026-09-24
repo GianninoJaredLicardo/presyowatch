@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% from "_ui.html" import status_pill %}
+{% block title %}Verify Reports — PresyoWatch{% endblock %}
+{% block content %}
+<h4 class="page-title">Verify Reports</h4>
+
+<div class="chips">
+  {% for s in ['all', 'pending', 'verified', 'rejected', 'flagged'] %}
+    <a class="chip {{ 'active' if status == s }}" href="{{ url_for('lgu.verification_queue', status=s) }}">{{ s|title }}</a>
+  {% endfor %}
+</div>
+
+{% for r, product, market, user in rows %}
+<div class="pw-card list-card position-relative">
+  <span style="position:absolute;right:16px;top:14px">{{ status_pill(r.status) }}</span>
+  <div class="name"><a href="{{ url_for('lgu.report_detail', report_id=r.report_id) }}" class="text-decoration-none text-dark">{{ product.product_name }}</a></div>
+  <div class="price fs-5 my-1">₱{{ r.price|peso }}/{{ product.unit }}
+    {% if r.spike_percent and r.is_spike %}<small class="text-danger fs-6">(+{{ '%.0f'|format(r.spike_percent) }}%)</small>{% endif %}</div>
+  <div class="meta">{{ market.market_name }} · {{ user.full_name }}</div>
+  <div class="meta mb-2">{{ r.created_at|localtime }}{% if r.photo_path %} · <a href="{{ url_for('static', filename='uploads/' ~ r.photo_path) }}" target="_blank"><i class="fa-solid fa-camera"></i> Photo attached</a>{% endif %}</div>
+
+  <form method="POST">
+    <input type="hidden" name="next" value="{{ url_for('lgu.verification_queue', status=status) }}">
+    <textarea class="input-pw mb-2" name="notes" placeholder="Verification notes...">{{ r.verification_notes or '' }}</textarea>
+    <div class="d-flex justify-content-around">
+      <button class="btn-approve btn-sm-pw btn-soft" formaction="{{ url_for('lgu.verify_report', report_id=r.report_id) }}">Approve</button>
+      <button class="btn-red btn-sm-pw btn-soft" formaction="{{ url_for('lgu.reject_report', report_id=r.report_id) }}">Reject</button>
+      <button class="btn-flag btn-sm-pw btn-soft" formaction="{{ url_for('lgu.flag_report', report_id=r.report_id) }}">Flag</button>
+    </div>
+  </form>
+</div>
+{% else %}
+<div class="pw-card text-center text-muted">No {{ '' if status == 'all' else status }} reports.</div>
+{% endfor %}
+{% endblock %}

@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% from "_ui.html" import verified, arrow %}
+{% set hide_nav = not nav_current_user.is_authenticated %}
+{% block title %}Search Prices — PresyoWatch{% endblock %}
+{% block content %}
+<h4 class="page-title">Search Prices</h4>
+
+<form method="GET" id="searchForm">
+  {% if selected_category %}<input type="hidden" name="category" value="{{ selected_category }}">{% endif %}
+  <div class="field"><input class="input-pw" type="search" name="q" value="{{ q }}" placeholder="Search for a commodity or vendor…"></div>
+
+  <div class="chips">
+    <a class="chip {{ 'active' if not selected_category }}" href="{{ url_for('public.price_search', q=q or None, market_id=selected_market) }}">All</a>
+    {% for c in categories %}
+      <a class="chip {{ 'active' if selected_category == c }}" href="{{ url_for('public.price_search', category=c, q=q or None, market_id=selected_market) }}">{{ c }}</a>
+    {% endfor %}
+  </div>
+
+  <div class="field">
+    <select class="input-pw" name="market_id" onchange="this.form.submit()">
+      <option value="">All markets</option>
+      {% for m in markets %}<option value="{{ m.market_id }}" {{ 'selected' if selected_market == m.market_id }}>{{ m.market_name }}</option>{% endfor %}
+    </select>
+  </div>
+  <noscript><button class="btn-pw btn-sm-pw" type="submit">Search</button></noscript>
+</form>
+
+{% for r in results %}
+<div class="pw-card list-card">
+  <div class="d-flex justify-content-between align-items-start gap-2">
+    <div class="name">{{ r.name }}</div>
+    <div class="price fs-5">₱{{ r.price|peso }}</div>
+  </div>
+  <div class="d-flex justify-content-between align-items-center gap-2 mt-1">
+    <div class="meta">
+      {% if r.seller_id %}<a href="{{ url_for('public.vendor_page', vendor_id=r.seller_id) }}" class="text-decoration-none text-dark">{{ r.seller }}</a>{% else %}{{ r.seller }}{% endif %}
+      {% if r.verified %} {{ verified() }}{% endif %}
+    </div>
+    <small class="text-muted">per {{ r.unit }}</small>
+  </div>
+  <div class="d-flex justify-content-between mt-1">
+    <small style="color:var(--title)">• {{ r.market }}</small>
+    <small class="text-muted fst-italic">{{ r.date|localtime('%b %d') if r.date else '' }}</small>
+  </div>
+</div>
+{% else %}
+<div class="pw-card text-center text-muted">No prices found for these filters yet.</div>
+{% endfor %}
+{% endblock %}

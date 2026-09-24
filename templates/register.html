@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% from "_ui.html" import brand %}
+{% set hide_nav = true %}
+{% block title %}Create Account — PresyoWatch{% endblock %}
+{% block content %}
+<h1 class="auth-title">Create Your Account</h1>
+
+<form method="GET" action="{{ url_for('auth.register_continue') }}" class="pw-card white mt-4">
+  {{ brand(80) }}
+  <div class="small fw-bold mb-3">Step 1: Choose your role</div>
+  <label class="role-option">
+    <input type="radio" name="role" value="resident" checked>
+    <i class="fa-solid fa-user"></i>
+    <div><b>Resident/Consumer</b><small>Report and track commodity prices</small></div>
+  </label>
+  <label class="role-option">
+    <input type="radio" name="role" value="vendor">
+    <i class="fa-solid fa-star"></i>
+    <div><b>Market Vendor</b><small>Manage your listings and get verified</small></div>
+  </label>
+  <button class="btn-pw btn-block" type="submit">Continue <i class="fa-solid fa-arrow-right"></i></button>
+  <div class="text-center mt-3 small"><a href="{{ url_for('auth.register_form', role='lgu') }}" class="text-muted">Government staff? Request LGU / DTI-DA access</a></div>
+</form>
+<div class="text-center small mt-4">Already have an account? <a href="{{ url_for('auth.login') }}" class="fw-bold text-dark ms-1">Login</a></div>
+{% endblock %}

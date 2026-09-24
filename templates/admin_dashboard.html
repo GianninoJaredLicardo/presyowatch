@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Admin Analytics — PresyoWatch{% endblock %}
+{% block content %}
+<h4 class="mb-3"><i class="fa-solid fa-chart-pie"></i> System Analytics</h4>
+
+<div class="row g-3 mb-4">
+  <div class="col-md-3">
+    <div class="card stat-card text-center p-3">
+      <div class="stat-number">{{ total_users }}</div>
+      <div class="text-muted">Total Users</div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card stat-card text-center p-3">
+      <div class="stat-number">{{ total_reports }}</div>
+      <div class="text-muted">Total Price Reports</div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card stat-card text-center p-3">
+      <div class="stat-number text-danger">{{ open_alerts }} / {{ total_alerts }}</div>
+      <div class="text-muted">Open / Total Alerts</div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card stat-card text-center p-3">
+      <div class="stat-number">{{ pending_approvals }}</div>
+      <div class="text-muted">Pending Approvals</div>
+      <a href="{{ url_for('admin.users') }}" class="small">Review &rarr;</a>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-md-6">
+    <div class="card p-3 shadow-sm">
+      <h6>Users by Role</h6>
+      <canvas id="roleChart" height="220"></canvas>
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="card p-3 shadow-sm">
+      <h6>Reports by Status</h6>
+      <canvas id="statusChart" height="220"></canvas>
+    </div>
+  </div>
+</div>
+
+<script>
+new Chart(document.getElementById('roleChart').getContext('2d'), {
+  type: 'doughnut',
+  data: { labels: {{ role_labels|tojson }}, datasets: [{ data: {{ role_values|tojson }}, backgroundColor: ['#0f5132','#14804a','#ffc107','#6c757d','#20c997'] }] }
+});
+new Chart(document.getElementById('statusChart').getContext('2d'), {
+  type: 'pie',
+  data: { labels: {{ status_labels|tojson }}, datasets: [{ data: {{ status_values|tojson }}, backgroundColor: ['#6c757d','#0f5132','#dc3545','#adb5bd'] }] }
+});
+</script>
+{% endblock %}

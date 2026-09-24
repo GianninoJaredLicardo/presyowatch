@@ -1,0 +1,37 @@
+{% macro stat(n, label) %}
+<div class="stat-tile"><div class="n">{{ n }}</div><div class="l">{{ label }}</div></div>
+{% endmacro %}
+
+{% macro verified() %}<span class="pill blue"><i class="fa-solid fa-check"></i> Verified</span>{% endmacro %}
+
+{% macro status_pill(status) %}
+  {% if status in ['verified', 'active', 'in_stock', 'resolved'] %}<span class="pill green">{{ status.replace('_', ' ')|title }}</span>
+  {% elif status in ['rejected', 'suspended', 'out_of_stock', 'escalated'] %}<span class="pill red">{{ status.replace('_', ' ')|title }}</span>
+  {% elif status in ['flagged', 'low_stock', 'acknowledged'] %}<span class="pill">{{ status.replace('_', ' ')|title }}</span>
+  {% else %}<span class="pill pending">{{ status.replace('_', ' ')|title }}</span>{% endif %}
+{% endmacro %}
+
+{% macro avatar(name, small=false) %}
+<div class="avatar {{ 'sm' if small }}">{{ (name or '?')[0]|upper }}</div>
+{% endmacro %}
+
+{% macro stars(n) %}<span class="stars">{% for i in range(5) %}<i class="fa-{{ 'solid' if i < n else 'regular' }} fa-star"></i>{% endfor %}</span>{% endmacro %}
+
+{% macro arrow(direction) %}{% if direction == 'up' %}<i class="fa-solid fa-arrow-up"></i>{% elif direction == 'down' %}<i class="fa-solid fa-arrow-down"></i>{% endif %}{% endmacro %}
+
+{% macro brand(size=70) %}
+<div class="brand">
+  <img src="{{ url_for('static', filename='img/logo.svg') }}" width="{{ size }}" height="{{ size }}" alt="PresyoWatch logo">
+  <div class="name">Presyo<span>Watch</span></div>
+</div>
+{% endmacro %}
+
+{% macro toggle(name, checked, label, autosubmit=false) %}
+<div class="switch-row">
+  <span>{{ label }}</span>
+  <label class="switch">
+    <input type="checkbox" name="{{ name }}" {{ 'checked' if checked }} {{ 'onchange="this.form.submit()"'|safe if autosubmit }}>
+    <span class="track"></span>
+  </label>
+</div>
+{% endmacro %}

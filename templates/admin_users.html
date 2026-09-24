@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}Manage Users — PresyoWatch{% endblock %}
+{% block content %}
+<h4 class="mb-3"><i class="fa-solid fa-users-gear"></i> Manage Users</h4>
+
+<div class="table-responsive">
+<table class="table table-hover bg-white align-middle">
+  <thead class="table-light">
+    <tr><th>Name</th><th>Email</th><th>Role</th><th>City</th><th>Status</th><th>Vendor Badge</th><th>Subscription</th><th>Actions</th></tr>
+  </thead>
+  <tbody>
+    {% for u in users %}
+    <tr>
+      <td>{{ u.full_name }}</td>
+      <td>{{ u.email }}</td>
+      <td>{{ u.role.replace('_',' ')|title }}</td>
+      <td>{{ u.city or '-' }}</td>
+      <td>{% if u.is_active_flag %}<span class="badge badge-verified">Active</span>{% else %}<span class="badge bg-secondary">Pending/Disabled</span>{% endif %}</td>
+      <td>
+        {% if u.role == 'vendor' %}
+          {% if u.is_verified_vendor %}<span class="badge bg-success">Verified Vendor</span>
+          {% else %}
+          <form method="POST" action="{{ url_for('admin.verify_vendor', user_id=u.user_id) }}">
+            <button class="btn btn-sm btn-outline-success">Grant Badge</button>
+          </form>
+          {% endif %}
+        {% else %}-{% endif %}
+      </td>
+      <td>
+        {% if u.is_lgu_or_agency() %}
+        <form method="POST" action="{{ url_for('admin.update_subscription', user_id=u.user_id, new_status='active' if u.subscription_status != 'active' else 'inactive') }}">
+          <button class="btn btn-sm {{ 'btn-success' if u.subscription_status == 'active' else 'btn-outline-secondary' }}">{{ u.subscription_status|title }}</button>
+        </form>
+        {% else %}-{% endif %}
+      </td>
+      <td>
+        {% if not u.is_active_flag %}
+        <form method="POST" action="{{ url_for('admin.approve_user', user_id=u.user_id) }}" class="d-inline">
+          <button class="btn btn-sm btn-success">Approve</button>
+        </form>
+        {% endif %}
+        <form method="POST" action="{{ url_for('admin.toggle_active', user_id=u.user_id) }}" class="d-inline">
+          <button class="btn btn-sm btn-outline-danger">{{ 'Disable' if u.is_active_flag else 'Enable' }}</button>
+        </form>
+        <form method="POST" action="{{ url_for('admin.reset_password', user_id=u.user_id) }}" class="d-inline" onsubmit="return confirm('Issue a temporary password for {{ u.full_name }}?')">
+          <button class="btn btn-sm btn-outline-secondary">Reset Password</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endblock %}

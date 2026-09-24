@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% from "_ui.html" import status_pill %}
+{% block title %}Report a Price — PresyoWatch{% endblock %}
+{% block content %}
+<h4 class="page-title">Report a Price</h4>
+
+<form method="POST" enctype="multipart/form-data" class="pw-card">
+  <div class="field">
+    <label class="form-label">Commodity</label>
+    <select class="input-pw" name="product_id" required>
+      <option value="">Select Commodity (ex. White Rice)</option>
+      {% for p in products %}<option value="{{ p.product_id }}">{{ p.product_name }} ({{ p.unit }})</option>{% endfor %}
+    </select>
+  </div>
+  <div class="field">
+    <label class="form-label">Price per unit</label>
+    <input class="input-pw" type="number" step="0.01" min="0.01" name="price" placeholder="₱" required>
+  </div>
+  <div class="field">
+    <label class="form-label">Market/Location</label>
+    <select class="input-pw" name="market_id" required>
+      <option value="">e.g. Carbon Market</option>
+      {% for m in markets %}<option value="{{ m.market_id }}">{{ m.market_name }} — {{ m.city }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="field">
+    <label class="form-label">Vendor Name (optional)</label>
+    <input class="input-pw" name="vendor_name" placeholder="Vendor name…" maxlength="100">
+  </div>
+  <div class="field">
+    <label class="form-label">Date Reported</label>
+    <input class="input-pw" type="date" name="report_date" value="{{ today }}" max="{{ today }}">
+  </div>
+  <div class="field">
+    <label class="btn-pale btn-block" style="border-radius:14px"><i class="fa-solid fa-camera"></i> <span id="photoLabel">Add Photo (Optional)</span>
+      <input type="file" name="photo" accept="image/png,image/jpeg" hidden onchange="document.getElementById('photoLabel').textContent = this.files[0] ? this.files[0].name : 'Add Photo (Optional)'">
+    </label>
+  </div>
+  <button class="btn-pw btn-block" type="submit">Submit Report</button>
+</form>
+
+<h5 class="page-title sm">Recent Reports</h5>
+<div class="pw-card tint">
+  {% for r in recent %}
+  <div class="row-line">
+    <div><div class="fw-semibold">{{ r.product.product_name if r.product else '—' }}</div><small class="text-muted">₱{{ r.price|peso }}/{{ r.product.unit if r.product else 'unit' }}</small></div>
+    {{ status_pill(r.status) }}
+  </div>
+  {% else %}<div class="text-muted text-center">No reports yet.</div>{% endfor %}
+</div>
+{% endblock %}

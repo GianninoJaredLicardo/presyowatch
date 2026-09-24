@@ -1,0 +1,20 @@
+# Secrets — never commit these
+.env
+firebase-key.json
+*-firebase-adminsdk-*.json
+serviceAccount*.json
+
+# Python
+venv/
+__pycache__/
+*.pyc
+
+# Runtime files
+exports/
+static/uploads/
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Market QR Codes — PresyoWatch{% endblock %}
+{% block content %}
+<h4 class="page-title">Market QR Codes</h4>
+<p class="small">Print these and post them at market entrances. Shoppers scan to see live verified prices for that market.</p>
+
+<div class="stat-row c2">
+  {% for m in markets %}
+  <div class="pw-card text-center" style="padding:12px">
+    <img src="{{ url_for('public.market_qr', market_id=m.market_id) }}" class="img-fluid mb-2" alt="QR code for {{ m.market_name }}">
+    <div class="fw-bold small">{{ m.market_name }}</div>
+    <div class="text-muted small mb-2">{{ m.city }}</div>
+    <a class="btn-pw btn-sm-pw" href="{{ url_for('lgu.download_qr', market_id=m.market_id) }}">Download</a>
+  </div>
+  {% endfor %}
+</div>
+<a class="btn-pale btn-block" href="{{ url_for('lgu.download_all_qr') }}">Download all (.zip)</a>
+{% endblock %}

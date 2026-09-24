@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block title %}Statistics — PresyoWatch{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mt-2">
+  <h4 class="page-title mb-0">Statistics</h4>
+  <div class="chips mb-0" style="gap:4px">
+    {% for d in [7, 30, 90] %}<a class="chip {{ 'active' if days == d }}" style="padding:4px 10px" href="{{ url_for('lgu.stats', days=d) }}">{{ d }} Days</a>{% endfor %}
+  </div>
+</div>
+
+<div class="stat-row c2 mt-3 mb-3">
+  <div class="stat-tile light"><div class="n">{{ totals.reports }}</div><div class="l">Total Reports</div></div>
+  <div class="stat-tile light"><div class="n">{{ totals.spikes }}</div><div class="l">Price Spikes</div></div>
+  <div class="stat-tile light"><div class="n">{{ totals.vendors }}</div><div class="l">Active Vendors</div></div>
+  <div class="stat-tile light"><div class="n">{{ totals.verified }}</div><div class="l">Verified Reports</div></div>
+</div>
+
+<div class="pw-card white">
+  <div class="d-flex justify-content-between align-items-center"><h5 class="card-title mb-0">Reports Submitted</h5><span class="pill gray">Total: {{ totals.reports }}</span></div>
+  <div class="bar-chart">
+    {% for b in report_bars %}<div class="bar"><i style="height:{{ b.pct }}%" title="{{ b.value }}"></i>{{ b.label }}</div>{% endfor %}
+  </div>
+</div>
+
+<div class="pw-card white">
+  <div class="d-flex justify-content-between align-items-center"><h5 class="card-title mb-0">Price Spike Alerts</h5><span class="pill gray">{{ totals.spikes }} total</span></div>
+  <div class="bar-chart red">
+    {% for b in spike_bars %}<div class="bar"><i style="height:{{ b.pct }}%" title="{{ b.value }}"></i>{{ b.label }}</div>{% endfor %}
+  </div>
+</div>
+
+<h5 class="page-title sm">Commodity Price Summary</h5>
+<div class="pw-card tint">
+  <table class="data-table">
+    <thead><tr><th>Item</th><th>Avg</th><th>Range</th><th>Change</th></tr></thead>
+    <tbody>
+    {% for s in summary %}
+      <tr><td class="fw-semibold">{{ s.name }}</td><td class="price">₱{{ '%.0f'|format(s.avg) }}</td>
+          <td class="small">₱{{ '%.0f'|format(s.lo) }}-{{ '%.0f'|format(s.hi) }}</td>
+          <td class="small {{ 'text-danger' if s.change and s.change > 0 else 'price' }}">
+            {% if s.change is none %}—{% else %}{{ '↑' if s.change > 0 else '↓' }} {{ s.change|abs }}%{% endif %}</td></tr>
+    {% else %}<tr><td colspan="4" class="text-center text-muted">No reports in this period.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<h5 class="page-title sm">Reports by Category</h5>
+<div class="pw-card white">
+  {% for c in by_category %}
+  <div class="mb-3"><div class="d-flex justify-content-between small"><span class="fw-semibold">{{ c.name }}</span><span>{{ c.pct }}%</span></div>
+    <div class="progress-pw blue"><span style="width:{{ c.pct }}%"></span></div></div>
+  {% else %}<div class="text-muted text-center">No data.</div>{% endfor %}
+</div>
+
+<h5 class="page-title sm">Top Markets by Activity</h5>
+<div class="pw-card white">
+  {% for m in top_markets %}
+  <div class="mb-3">
+    <div class="d-flex align-items-center gap-3 mb-1">
+      <span class="pill" style="background:#467348;color:#fff;border-radius:50%;padding:8px 13px;font-size:.9rem">{{ loop.index }}</span>
+      <b>{{ m.name }}</b>
+    </div>
+    <div class="progress-pw dark"><span style="width:{{ m.pct }}%"></span></div>
+    <small class="text-muted">{{ m.reports }} reports · {{ m.vendors }} vendors</small>
+  </div>
+  {% else %}<div class="text-muted text-center">No data.</div>{% endfor %}
+</div>
+
+<div class="pw-card dark">
+  <h5 class="card-title" style="color:#2b4a2c">Vendor Badge Status</h5>
+  <div class="stat-row c3 mb-3">
+    <div class="stat-tile"><div class="n">{{ badge.verified }}</div><div class="l">Verified</div></div>
+    <div class="stat-tile"><div class="n">{{ badge.pending }}</div><div class="l">Pending</div></div>
+    <div class="stat-tile"><div class="n">{{ badge.unverified }}</div><div class="l">Unverified</div></div>
+  </div>
+  <div class="stacked mb-2"><span style="width:{{ badge_pct.verified }}%"></span><span style="width:{{ badge_pct.pending }}%"></span><span style="width:{{ badge_pct.unverified }}%"></span></div>
+  <div class="d-flex justify-content-around small">
+    <span><i class="dot" style="background:#1d4e7c"></i>Verified</span><span><i class="dot" style="background:#e0d55e"></i>Pending</span><span><i class="dot" style="background:#c7ccc2"></i>Unverified</span>
+  </div>
+</div>
+
+<div class="pw-card white">
+  <h5 class="card-title">Price Compliance Rate</h5>
+  <div class="d-flex align-items-center gap-3">
+    <div class="donut" style="background:conic-gradient(#1e9e5a {{ compliance.fair }}%, #e0e5dc 0)"><span>{{ compliance.fair if compliance.has_data else '—' }}{{ '%' if compliance.has_data }}</span></div>
+    <div class="flex-grow-1 small">
+      <div>Reports within fair price <b>{{ compliance.fair }}%</b></div>
+      <div class="progress-pw mb-2"><span style="width:{{ compliance.fair }}%;background:#1e9e5a"></span></div>
+      <div>Minor deviations (5–{{ '%g'|format(threshold) }}%) <b>{{ compliance.minor }}%</b></div>
+      <div class="progress-pw mb-2"><span style="width:{{ compliance.minor }}%;background:#e0d55e"></span></div>
+      <div>Major spikes (&gt;{{ '%g'|format(threshold) }}%) <b>{{ compliance.major }}%</b></div>
+      <div class="progress-pw"><span style="width:{{ compliance.major }}%;background:#e5534b"></span></div>
+    </div>
+  </div>
+</div>
+{% endblock %}

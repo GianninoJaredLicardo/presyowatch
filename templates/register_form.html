@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% from "_ui.html" import brand %}
+{% set hide_nav = true %}
+{% block title %}Your Details — PresyoWatch{% endblock %}
+{% block content %}
+<h1 class="auth-title" style="font-size:1.4rem">Your Details</h1>
+
+<form method="POST" class="pw-card white mt-3">
+  {{ brand(64) }}
+  <div class="text-center small fw-bold mb-3">
+    Step 2: Fill in your information as
+    {{ {'resident': 'a resident', 'vendor': 'vendor', 'lgu': 'LGU / DTI-DA staff'}[role] }}
+  </div>
+
+  <div class="field"><input class="input-pw" name="full_name" placeholder="{{ 'Owner Full Name' if role == 'vendor' else 'Full Name' }}" required></div>
+  <div class="field"><input class="input-pw" type="email" name="email" placeholder="Email Address" required></div>
+  <div class="field"><input class="input-pw" type="password" name="password" placeholder="Password (min. 6 characters)" required minlength="6"></div>
+  <div class="field"><input class="input-pw" type="password" name="confirm_password" placeholder="Confirm Password" required></div>
+  <div class="field"><input class="input-pw" name="contact_number" placeholder="Contact Number"></div>
+
+  {% if role == 'vendor' %}
+    <div class="field"><input class="input-pw" name="business_name" placeholder="Business Name" required></div>
+    <div class="field"><input class="input-pw" name="business_address" placeholder="Business Address (e.g. Stall 24-B)"></div>
+    <div class="field">
+      <select class="input-pw" name="market_id" required>
+        <option value="">Market Location</option>
+        {% for m in markets %}<option value="{{ m.market_id }}">{{ m.market_name }} — {{ m.city }}</option>{% endfor %}
+      </select>
+    </div>
+    <label class="d-flex gap-2 align-items-start small text-muted mb-3">
+      <input type="checkbox" name="agree" class="mt-1" required>
+      <span>I agree to the Terms and Conditions and Privacy Policy</span>
+    </label>
+    <button class="btn-pw btn-block" type="submit">Register as Vendor</button>
+  {% elif role == 'lgu' %}
+    <div class="field"><input class="input-pw" name="org_name" placeholder="Organization (e.g. Municipality of Cebu City)" required></div>
+    <div class="field"><input class="input-pw" name="division" placeholder="Division (e.g. Price Monitoring Division)"></div>
+    <div class="field">
+      <select class="input-pw" name="city"><option value="">City</option><option>Cebu City</option><option>Lapu-Lapu City</option></select>
+    </div>
+    <div class="small text-muted mb-3">LGU accounts must be approved by an administrator before you can log in.</div>
+    <button class="btn-pw btn-block" type="submit">Request Access</button>
+  {% else %}
+    <div class="field"><input class="input-pw" name="address" placeholder="Location (e.g. Lahug)"></div>
+    <div class="field">
+      <select class="input-pw" name="city"><option value="">City</option><option>Cebu City</option><option>Lapu-Lapu City</option></select>
+    </div>
+    <button class="btn-pw btn-block" type="submit">Register as Resident</button>
+  {% endif %}
+</form>
+<div class="text-center small"><a href="{{ url_for('auth.register') }}" class="text-dark">&larr; Change role</a></div>
+{% endblock %}

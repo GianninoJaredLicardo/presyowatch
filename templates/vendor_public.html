@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% from "_ui.html" import verified, stat, stars, arrow %}
+{% set hide_nav = not nav_current_user.is_authenticated %}
+{% block title %}{{ vendor.business_name or vendor.full_name }} — PresyoWatch{% endblock %}
+{% block content %}
+<div style="margin:-26px -16px 0">
+  <div class="vendor-hero">{{ vendor.business_name or vendor.full_name }}</div>
+  <div style="background:#c8dc9d;padding:14px 16px 18px">
+    <div class="d-flex align-items-center gap-3 flex-wrap mb-3">
+      {% if vendor.is_verified_vendor %}{{ verified() }}{% else %}<span class="pill gray">Not yet verified</span>{% endif %}
+      <span class="small text-secondary">{{ market.market_name if market else '' }}{% if vendor.business_address %}, {{ vendor.business_address }}{% endif %}</span>
+    </div>
+    <div class="stat-row c3">
+      {{ stat(stats.rating if stats.rating is not none else '—', 'Rating') }}
+      {{ stat(stats.review_count, 'Reviews') }}
+      {{ stat((stats.accuracy ~ '%') if stats.accuracy is not none else '—', 'Accurate') }}
+    </div>
+  </div>
+
+  <div style="background:#ececec;padding:18px 16px">
+    <div class="d-flex justify-content-between align-items-baseline mb-3">
+      <h5 class="mb-0" style="color:var(--title)">Current Prices</h5>
+      <small class="fst-italic text-muted">{% if updated %}Updated {{ updated|timeago }}{% else %}No prices yet{% endif %}</small>
+    </div>
+    {% for l in listings %}
+    <div class="pw-card white d-flex justify-content-between align-items-center" style="padding:14px 18px;margin-bottom:12px;border-radius:14px">
+      <span class="fw-semibold">{{ l.name }} <small class="text-muted">(per {{ l.unit }})</small>
+        {% if l.stock_status != 'in_stock' %}<br><small class="text-danger">{{ l.stock_status.replace('_', ' ')|title }}</small>{% endif %}</span>
+      {% set d = 'down' if l.prev_price and l.price < l.prev_price else ('up' if l.prev_price and l.price > l.prev_price else none) %}
+      <span class="price {{ d or '' }}">₱{{ l.price|peso }} {{ arrow(d) }}</span>
+    </div>
+    {% else %}
+      <div class="text-muted text-center py-3">This vendor hasn't posted any prices yet.</div>
+    {% endfor %}
+    {% if more %}<div class="text-end small text-muted">+{{ more }} more…</div>{% endif %}
+  </div>
+
+  <div style="background:#ececec;padding:0 16px 18px">
+    <h5 style="color:var(--title)">Reviews</h5>
+    {% for r in reviews %}
+      <div class="pw-card white" style="padding:14px 16px;margin-bottom:10px">
+        <div class="d-flex justify-content-between"><b>{{ r.user_name }}</b>{{ stars(r.rating) }}</div>
+        <div class="small mt-1">{{ r.comment }}</div>
+        {% if r.reply %}<div class="small mt-2 p-2 rounded" style="background:#eef4e6"><b>Vendor reply:</b> {{ r.reply }}</div>{% endif %}
+      </div>
+    {% else %}<div class="text-muted small mb-2">No reviews yet.</div>{% endfor %}
+
+    {% if nav_current_user.is_authenticated and nav_current_user.user_id != vendor.user_id and nav_current_user.role in ['resident', 'vendor'] %}
+    <form method="POST" action="{{ url_for('public.add_review', vendor_id=vendor.user_id) }}" class="pw-card white" style="padding:14px 16px">
+      <div class="fw-bold mb-2">Leave a review</div>
+      <div class="stars-input mb-2">
+        {% for i in [5,4,3,2,1] %}<input type="radio" id="s{{ i }}" name="rating" value="{{ i }}"><label for="s{{ i }}" title="{{ i }} stars">★</label>{% endfor %}
+      </div>
+      <textarea class="input-pw mb-2" name="comment" placeholder="Share your experience…" maxlength="500" required></textarea>
+      <button class="btn-pw btn-sm-pw" type="submit">Submit review</button>
+    </form>
+    {% endif %}
+  </div>
+
+  {% if not nav_current_user.is_authenticated %}
+  <div style="background:linear-gradient(#6f9a5a,#4a7a4f);padding:26px 16px;text-align:center;color:#fff">
+    <b>Want full access?</b>
+    <p class="fst-italic small" style="opacity:.9">Create a free account to set price alerts, submit reports, and more.</p>
+    <a class="btn-yellow" href="{{ url_for('auth.register') }}">Register</a>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

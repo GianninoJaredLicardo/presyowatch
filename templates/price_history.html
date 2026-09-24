@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Price Trends — PresyoWatch{% endblock %}
+{% block content %}
+<h4 class="page-title">Price History &amp; Trends</h4>
+
+<form method="GET" class="field">
+  <select id="productSelect" name="product_id" class="input-pw" onchange="this.form.submit()">
+    <option value="">All commodities</option>
+    {% for p in products %}
+      <option value="{{ p.product_id }}" {% if selected_product == p.product_id %}selected{% endif %}>{{ p.product_name }} ({{ p.unit }})</option>
+    {% endfor %}
+  </select>
+</form>
+
+<div class="pw-card white"><canvas id="priceChart" height="220"></canvas></div>
+<a class="btn-pale btn-block" href="{{ url_for('resident.dashboard') }}">&larr; Back to Home</a>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(async function () {
+  const productId = document.getElementById('productSelect').value;
+  const params = new URLSearchParams({ days: 30 });
+  if (productId) params.append('product_id', productId);
+  const res = await fetch(`{{ url_for('resident.price_history_data') }}?${params.toString()}`);
+  const data = await res.json();
+  new Chart(document.getElementById('priceChart').getContext('2d'), {
+    type: 'line',
+    data: { labels: data.labels, datasets: [{
+      label: 'Average Verified Price (PHP)', data: data.values,
+      borderColor: '#467348', backgroundColor: 'rgba(70,115,72,0.18)', fill: true, tension: 0.3 }] },
+    options: { responsive: true }
+  });
+})();
+</script>
+{% endblock %}

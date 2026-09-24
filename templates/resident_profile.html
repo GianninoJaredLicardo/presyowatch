@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% from "_ui.html" import avatar %}
+{% block title %}Profile — PresyoWatch{% endblock %}
+{% block content %}
+{% set u = nav_current_user %}
+<div class="pw-card text-center position-relative mt-3">
+  <a class="edit-btn" href="{{ url_for('auth.edit_account') }}" title="Edit profile"><i class="fa-regular fa-pen-to-square"></i></a>
+  {{ avatar(u.full_name) }}
+  <h5 style="color:#0f6b33;font-weight:800">{{ u.full_name }}</h5>
+  <div class="small text-muted mb-3">Resident · {{ u.city or '—' }}</div>
+  <div class="d-flex justify-content-around">
+    <div><b class="fs-5">{{ report_count }}</b><div class="small">Reports</div></div>
+    <div><b class="fs-5">{{ alert_count }}</b><div class="small">Alerts</div></div>
+    <div><b class="fs-5"><i class="fa-solid fa-star" style="color:#f5b301"></i> {{ accuracy if accuracy is not none else '—' }}</b><div class="small">Report Accuracy</div></div>
+  </div>
+</div>
+
+<div class="pw-card position-relative">
+  <a class="edit-btn" href="{{ url_for('auth.edit_account') }}"><i class="fa-regular fa-pen-to-square"></i></a>
+  <div class="info-label">Email</div><div class="info-value">{{ u.email }}</div>
+  <div class="info-label">Contact</div><div class="info-value">{{ u.contact_number or '—' }}</div>
+  <div class="info-label">Location</div><div class="info-value mb-0">{{ [u.address, u.city]|select|join(', ') or '—' }}</div>
+</div>
+
+<a class="btn-pale btn-block mb-3" href="{{ url_for('auth.change_password') }}">Change Password</a>
+<a class="btn-pale btn-block mb-3" href="{{ url_for('public.scan') }}">Scan QR code</a>
+<a class="btn-logout" href="{{ url_for('auth.logout') }}">Log out</a>
+{% endblock %}

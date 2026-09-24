@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% from "_ui.html" import status_pill %}
+{% block title %}Report #{{ report.report_id }} — PresyoWatch{% endblock %}
+{% block content %}
+<h4 class="page-title">Report #{{ report.report_id }}</h4>
+
+<div class="pw-card">
+  <div class="d-flex justify-content-between align-items-start">
+    <div class="name fs-5 fw-bold">{{ product.product_name }}</div>{{ status_pill(report.status) }}
+  </div>
+  <div class="price fs-4">₱{{ report.price|peso }}/{{ product.unit }}</div>
+  <div class="row-line"><span class="text-muted">Market</span><span>{{ market.market_name }} · {{ market.city }}</span></div>
+  <div class="row-line"><span class="text-muted">Report date</span><span>{{ report.report_date }}</span></div>
+  <div class="row-line"><span class="text-muted">Reported by</span><span>{{ reporter.full_name }}</span></div>
+  {% if report.vendor_name %}<div class="row-line"><span class="text-muted">Vendor</span><span>{{ report.vendor_name }}</span></div>{% endif %}
+  {% if report.spike_percent is not none %}
+  <div class="row-line"><span class="text-muted">Deviation</span><span class="{{ 'text-danger fw-bold' if report.is_spike }}">{{ report.spike_percent }}% vs. baseline</span></div>
+  {% endif %}
+  {% if report.verification_notes %}<div class="row-line"><span class="text-muted">Notes</span><span>{{ report.verification_notes }}</span></div>{% endif %}
+  {% if report.photo_path %}
+    <img src="{{ url_for('static', filename='uploads/' ~ report.photo_path) }}" class="img-fluid rounded mt-3" style="max-height:300px" alt="Report photo">
+  {% endif %}
+</div>
+
+<form method="POST" class="pw-card">
+  <input type="hidden" name="next" value="/lgu/reports/{{ report.report_id }}">
+  <textarea class="input-pw mb-2" name="notes" placeholder="Verification notes...">{{ report.verification_notes or '' }}</textarea>
+  <div class="d-flex justify-content-around">
+    <button class="btn-approve btn-soft btn-sm-pw" formaction="{{ url_for('lgu.verify_report', report_id=report.report_id) }}">Approve</button>
+    <button class="btn-red btn-soft btn-sm-pw" formaction="{{ url_for('lgu.reject_report', report_id=report.report_id) }}">Reject</button>
+    <button class="btn-flag btn-soft btn-sm-pw" formaction="{{ url_for('lgu.flag_report', report_id=report.report_id) }}">Flag</button>
+  </div>
+</form>
+
+<h5 class="page-title sm">Alert History</h5>
+<div class="pw-card tint">
+  {% for a in alerts %}
+    <div class="py-2 small">{{ a.message }}<div class="text-muted">{{ a.created_at|localtime }} — {{ a.status|title }}</div>
+    {% if a.status != 'resolved' %}
+      <form method="POST" action="{{ url_for('lgu.resolve_alert', alert_id=a.alert_id) }}" class="mt-1"><button class="btn-soft btn-sm-pw">Resolve</button></form>
+    {% endif %}</div>
+  {% else %}<div class="text-muted small">No alerts for this report.</div>{% endfor %}
+</div>
+<a class="btn-pale btn-block" href="{{ url_for('lgu.verification_queue') }}">&larr; Back to queue</a>
+{% endblock %}
