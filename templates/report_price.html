@@ -7,10 +7,7 @@
 <form method="POST" enctype="multipart/form-data" class="pw-card">
   <div class="field">
     <label class="form-label">Commodity</label>
-    <select class="input-pw" name="product_id" required>
-      <option value="">Select Commodity (ex. White Rice)</option>
-      {% for p in products %}<option value="{{ p.product_id }}">{{ p.product_name }} ({{ p.unit }})</option>{% endfor %}
-    </select>
+    <input class="input-pw" type="text" name="commodity_name" placeholder="Select Commodity (ex. White Rice)" required maxlength="100">
   </div>
   <div class="field">
     <label class="form-label">Price per unit</label>
@@ -18,10 +15,7 @@
   </div>
   <div class="field">
     <label class="form-label">Market/Location</label>
-    <select class="input-pw" name="market_id" required>
-      <option value="">e.g. Carbon Market</option>
-      {% for m in markets %}<option value="{{ m.market_id }}">{{ m.market_name }} — {{ m.city }}</option>{% endfor %}
-    </select>
+    <input class="input-pw" type="text" name="market_name" placeholder="e.g. Carbon Market" required maxlength="150">
   </div>
   <div class="field">
     <label class="form-label">Vendor Name (optional)</label>
@@ -43,7 +37,10 @@
 <div class="pw-card tint">
   {% for r in recent %}
   <div class="row-line">
-    <div><div class="fw-semibold">{{ r.product.product_name if r.product else '—' }}</div><small class="text-muted">₱{{ r.price|peso }}/{{ r.product.unit if r.product else 'unit' }}</small></div>
+    <div>
+      <div class="fw-semibold">{{ r.commodity_name if r.commodity_name else (r.product.product_name if r.product else '—') }}</div>
+      <small class="text-muted">₱{{ r.price|peso }}/{{ r.unit if r.unit else (r.product.unit if r.product else 'unit') }} — {{ r.market_name if r.market_name else '—' }}</small>
+    </div>
     {{ status_pill(r.status) }}
   </div>
   {% else %}<div class="text-muted text-center">No reports yet.</div>{% endfor %}

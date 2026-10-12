@@ -178,13 +178,23 @@ class User(UserMixin, Model):
 class Market(Model):
     collection = "markets"
     id_field = "market_id"
-    defaults = {"market_name": None, "city": None, "latitude": None, "longitude": None}
+    defaults = {
+        "market_name": None,
+        "city": None,
+        "address": None,       # NEW — for text-based markets
+        "latitude": None,
+        "longitude": None,
+    }
 
 
 class Product(Model):
     collection = "products"
     id_field = "product_id"
-    defaults = {"product_name": None, "unit": "kg", "category": "General"}
+    defaults = {
+        "product_name": None,
+        "unit": "kg",
+        "category": "General",
+    }
 
 
 class DtiSrp(Model):
@@ -206,10 +216,12 @@ class PriceReport(Model):
         "user_id": None,
         "product_id": None,
         "market_id": None,
+        "commodity_name": None,        # NEW — text commodity name
+        "market_name": None,            # NEW — text market name
         "price": None,
         "photo_path": None,
         "report_date": None,
-        "status": "pending",  # pending | verified | rejected | flagged
+        "status": "pending",            # pending | verified | rejected | flagged
         "is_spike": False,
         "spike_percent": None,
         "verified_by": None,

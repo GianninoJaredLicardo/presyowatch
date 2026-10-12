@@ -52,13 +52,30 @@ def dashboard():
         and (not current_user.city or (markets.get(r.market_id) and markets[r.market_id].city == current_user.city))
     )
 
+    # ---- Build recent activity feed ----
     events = []
     for r in my_reports:
-        name = products[r.product_id].product_name if r.product_id in products else "a commodity"
+        name = r.commodity_name if r.commodity_name else (
+            products[r.product_id].product_name if r.product_id in products else "a commodity"
+        )
         if r.status == "verified" and r.verified_at:
             events.append(("check", f"Your report on {name} was verified", r.verified_at))
         elif r.status == "rejected" and r.verified_at:
             events.append(("xmark", f"Your report on {name} was rejected", r.verified_at))
+        elif r.status == "pending" and r.created_at:
+            events.append((
+                "clock",
+                f"You submitted a price report for {name}",
+                r.created_at,
+            ))
+        elif r.status == "flagged" and r.created_at:
+            events.append((
+                "alert",
+                f"Your report on {name} was flagged for review",
+                r.created_at,
+            ))
+
+    # Alerts triggered
     for rule in rules:
         if rule.is_triggered and rule.product_id in products:
             word = "below" if rule.direction == "below" else "above"
@@ -67,9 +84,16 @@ def dashboard():
                 f"{products[rule.product_id].product_name} {word} ₱{rule.threshold:g}/kg — now ₱{rule.triggered_price:.2f}",
                 rule.triggered_at,
             ))
+
+    # New verified vendors in the user's city
     for v in User.find(role="vendor", is_verified_vendor=True):
         if v.vendor_verified_at and (not current_user.city or v.city == current_user.city):
-            events.append(("check", f"New verified vendor near you: {v.business_name or v.full_name}", v.vendor_verified_at))
+            events.append((
+                "check",
+                f"New verified vendor near you: {v.business_name or v.full_name}",
+                v.vendor_verified_at,
+            ))
+
     events.sort(key=lambda e: e[2], reverse=True)
 
     return render_template(
@@ -86,11 +110,10 @@ def dashboard():
 @resident_only
 def report_price():
     products = sorted(Product.all(), key=lambda p: p.product_name)
-    markets = sorted(Market.all(), key=lambda m: m.market_name)
 
     if request.method == "POST":
-        product_id = request.form.get("product_id", type=int)
-        market_id = request.form.get("market_id", type=int)
+        commodity_name = request.form.get("commodity_name", "").strip()
+        market_name = request.form.get("market_name", "").strip()
         price = request.form.get("price", type=float)
         vendor_name = request.form.get("vendor_name", "").strip() or None
         try:
@@ -100,12 +123,39 @@ def report_price():
             return redirect(url_for("resident.report_price"))
         photo = request.files.get("photo")
 
-        if not product_id or not market_id or price is None or not price > 0:
+        if not commodity_name or not market_name or price is None or not price > 0:
             flash("Commodity, market, and price are required.", "danger")
             return redirect(url_for("resident.report_price"))
-        if Product.get(product_id) is None or Market.get(market_id) is None:
-            flash("Unknown commodity or market.", "danger")
-            return redirect(url_for("resident.report_price"))
+
+        # Find or create product by name
+        product = next(
+            (p for p in products if p.product_name.lower() == commodity_name.lower()),
+            None
+        )
+        if product is None:
+            product = Product(
+                product_name=commodity_name,
+                unit="kg",
+                category="others"
+            )
+            product.save()
+            products = sorted(Product.all(), key=lambda p: p.product_name)
+
+        # Find or create market by name
+        market = next(
+            (m for m in Market.all() if m.market_name.lower() == market_name.lower()),
+            None
+        )
+        if market is None:
+            market = Market(
+                market_name=market_name,
+                city=current_user.city or "Cebu City",
+                address=market_name
+            )
+            market.save()
+
+        product_id = product.product_id
+        market_id = market.market_id
 
         photo_path = None
         if photo and photo.filename and allowed_file(photo.filename):
@@ -116,7 +166,8 @@ def report_price():
             photo_path = filename
 
         _, is_spike = create_report(
-            current_user.user_id, product_id, market_id, price, report_date, photo_path, vendor_name
+            current_user.user_id, product_id, market_id, price,
+            report_date, photo_path, vendor_name
         )
         if is_spike:
             flash(
@@ -128,12 +179,18 @@ def report_price():
             flash("Price report submitted. It is now pending LGU verification.", "success")
         return redirect(url_for("resident.report_price"))
 
-    recent = sorted(PriceReport.find(user_id=current_user.user_id), key=lambda r: r.created_at, reverse=True)[:5]
+    recent = sorted(
+        PriceReport.find(user_id=current_user.user_id),
+        key=lambda r: r.created_at,
+        reverse=True
+    )[:5]
     product_map = {p.product_id: p for p in products}
+    market_map = {m.market_id: m for m in Market.all()}
     for r in recent:
         r.product = product_map.get(r.product_id)
+        r.market = market_map.get(r.market_id)
     return render_template(
-        "report_price.html", products=products, markets=markets, today=date.today(), recent=recent
+        "report_price.html", products=products, today=date.today(), recent=recent
     )
 
 
