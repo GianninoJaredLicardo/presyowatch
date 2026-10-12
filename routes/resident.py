@@ -9,7 +9,7 @@ from flask import (
 from flask_login import current_user
 from werkzeug.utils import secure_filename
 
-from models import Alert, Market, PriceAlertRule, PriceReport, Product, User
+from models import Alert, Market, PriceAlertRule, PriceReport, Product, Review, User
 from utils.helpers import (
     market_price_board, refresh_alert_rules, role_required, vendor_stats,
 )
@@ -30,7 +30,6 @@ def _parse_date(value):
 
 
 def report_accuracy(user_id):
-    """Share of the user's reviewed reports that were verified, on a 5-point scale."""
     stats = [r.status for r in PriceReport.find(user_id=user_id)]
     verified = stats.count("verified")
     judged = verified + sum(1 for s in stats if s in ("rejected", "flagged"))
@@ -44,6 +43,7 @@ def dashboard():
     products = Product.index()
     markets = Market.index()
     my_reports = PriceReport.find(user_id=current_user.user_id)
+    my_reviews = Review.find(user_id=current_user.user_id)
 
     since = date.today() - timedelta(days=7)
     changes = sum(
@@ -54,6 +54,8 @@ def dashboard():
 
     # ---- Build recent activity feed ----
     events = []
+
+    # Price report events
     for r in my_reports:
         name = r.commodity_name if r.commodity_name else (
             products[r.product_id].product_name if r.product_id in products else "a commodity"
@@ -67,6 +69,17 @@ def dashboard():
         elif r.status == "flagged" and r.created_at:
             events.append(("alert", f"Your report on {name} was flagged for review", r.created_at))
 
+    # Feedback events
+    for rev in my_reviews:
+        vendor = User.get(rev.vendor_id)
+        vendor_name = vendor.business_name or vendor.full_name if vendor else "a vendor"
+        events.append((
+            "star",
+            f"You rated {vendor_name} — {rev.rating} star{'s' if rev.rating != 1 else ''}",
+            rev.created_at,
+        ))
+
+    # Alert rules triggered
     for rule in rules:
         if rule.is_triggered and rule.product_id in products:
             word = "below" if rule.direction == "below" else "above"
@@ -76,6 +89,7 @@ def dashboard():
                 rule.triggered_at,
             ))
 
+    # New verified vendors in the resident's city
     for v in User.find(role="vendor", is_verified_vendor=True):
         if v.vendor_verified_at and (not current_user.city or v.city == current_user.city):
             events.append((
@@ -86,6 +100,12 @@ def dashboard():
 
     events.sort(key=lambda e: e[2], reverse=True)
 
+    # Show ALL vendors so residents can rate any of them
+    verified_vendors = sorted(
+        User.find(role="vendor"),
+        key=lambda v: (v.business_name or v.full_name or "").lower(),
+    )
+
     return render_template(
         "resident_dashboard.html",
         report_count=len(my_reports),
@@ -93,6 +113,7 @@ def dashboard():
         changes=changes,
         board=market_price_board(current_user.city),
         events=events[:5],
+        verified_vendors=verified_vendors,
     )
 
 
@@ -185,17 +206,34 @@ def alerts():
     product_map = {p.product_id: p for p in products}
 
     if request.method == "POST":
-        product_id = request.form.get("product_id", type=int)
+        commodity_name = request.form.get("commodity_name", "").strip()
         threshold = request.form.get("threshold", type=float)
         direction = request.form.get("direction", "above")
-        if product_id not in product_map or threshold is None or not threshold > 0 or direction not in ("above", "below"):
-            flash("Choose a commodity and a valid price threshold.", "danger")
-        else:
-            PriceAlertRule(
-                user_id=current_user.user_id, product_id=product_id,
-                direction=direction, threshold=threshold,
-            ).save()
-            flash("Price alert saved.", "success")
+
+        if not commodity_name or threshold is None or not threshold > 0 or direction not in ("above", "below"):
+            flash("Enter a commodity and a valid price threshold.", "danger")
+            return redirect(url_for("resident.alerts"))
+
+        product = next(
+            (p for p in products if p.product_name.lower() == commodity_name.lower()),
+            None
+        )
+        if product is None:
+            product = Product(
+                product_name=commodity_name,
+                unit="kg",
+                category="others"
+            )
+            product.save()
+            products = sorted(Product.all(), key=lambda p: p.product_name)
+
+        PriceAlertRule(
+            user_id=current_user.user_id,
+            product_id=product.product_id,
+            direction=direction,
+            threshold=threshold,
+        ).save()
+        flash("Price alert saved.", "success")
         return redirect(url_for("resident.alerts"))
 
     rules = sorted(refresh_alert_rules(current_user.user_id), key=lambda r: r.created_at, reverse=True)
@@ -239,7 +277,6 @@ def profile():
 @bp.route("/profile/upload-picture", methods=["POST"])
 @resident_only
 def upload_profile_picture():
-    """Handle profile picture upload for the resident."""
     photo = request.files.get("profile_pic")
     if not photo or not photo.filename:
         flash("No file selected.", "danger")
@@ -266,8 +303,36 @@ def upload_profile_picture():
 @bp.route("/scan")
 @resident_only
 def scan_qr():
-    """QR code scanner page for residents."""
     return render_template("scan.html")
+
+
+@bp.route("/feedback/submit", methods=["POST"])
+@resident_only
+def submit_feedback():
+    """Handle feedback submitted from the resident dashboard home."""
+    vendor_id = request.form.get("vendor_id", type=int)
+    rating = request.form.get("rating", type=int)
+    comment = request.form.get("comment", "").strip()[:500]
+
+    if not vendor_id or rating is None or rating < 1 or rating > 5:
+        flash("Please select a vendor and a rating between 1 and 5.", "danger")
+        return redirect(url_for("resident.dashboard"))
+
+    vendor = User.get(vendor_id)
+    if not vendor or vendor.role != "vendor":
+        flash("Vendor not found.", "danger")
+        return redirect(url_for("resident.dashboard"))
+
+    Review(
+        vendor_id=vendor_id,
+        user_id=current_user.user_id,
+        user_name=current_user.full_name or "Anonymous",
+        rating=rating,
+        comment=comment or None,
+    ).save()
+
+    flash(f"Thanks! Your feedback for {vendor.business_name or vendor.full_name} has been sent.", "success")
+    return redirect(url_for("resident.dashboard"))
 
 
 @bp.route("/prices/history")
@@ -281,7 +346,6 @@ def price_history():
 @bp.route("/api/prices/history-data")
 @resident_only
 def price_history_data():
-    """JSON feed used by Chart.js on the price history page."""
     product_id = request.args.get("product_id", type=int)
     days = request.args.get("days", 30, type=int)
     since = date.today() - timedelta(days=days)

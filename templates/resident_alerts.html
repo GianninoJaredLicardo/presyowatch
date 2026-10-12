@@ -1,29 +1,54 @@
 {% extends "base.html" %}
 {% block title %}Alerts — PresyoWatch{% endblock %}
 {% block content %}
+
 {% if spike %}
 <div class="spike-card center mt-3">
   <div class="title">Price Spike Alert!</div>
-  <p>{{ spike.product_name }} at {{ spike.market_name }}: ₱{{ spike.reported_price|peso }}/kg<br>
-     — {{ '%.0f'|format(spike.spike_percent or 0) }}% above average<br>{{ spike.created_at|localtime('%b %d, %I:%M %p') }}</p>
+  <p>
+    {{ spike.product_name }} at {{ spike.market_name }}: ₱{{ spike.reported_price|peso }}/kg<br>
+    — {{ '%.0f'|format(spike.spike_percent or 0) }}% above average<br>
+    {{ spike.created_at|localtime('%b %d, %I:%M %p') }}
+  </p>
 </div>
 {% else %}
-<div class="pw-card text-center mt-3"><b style="color:var(--title)">No price spikes detected in your area.</b></div>
+<div class="pw-card text-center mt-3">
+  <b style="color:var(--title)">No price spikes detected in your area.</b>
+</div>
 {% endif %}
 
 <form method="POST" class="pw-card">
   <h5 class="card-title" style="font-size:1.2rem">Set New Alert</h5>
+
+  <!-- Commodity is now a free-text input -->
   <div class="field">
-    <select class="input-pw" name="product_id" required>
-      <option value="">Select commodity…</option>
-      {% for p in products %}<option value="{{ p.product_id }}">{{ p.product_name }}</option>{% endfor %}
-    </select>
+    <input 
+      class="input-pw" 
+      type="text" 
+      name="commodity_name" 
+      placeholder="e.g. Rice, Kamatis, Bangus" 
+      required 
+      maxlength="100"
+    >
   </div>
+
   <div class="chips">
-    <label class="chip active"><input type="radio" name="direction" value="above" checked hidden onchange="this.parentNode.classList.add('active');this.parentNode.nextElementSibling.classList.remove('active')"> Above</label>
-    <label class="chip"><input type="radio" name="direction" value="below" hidden onchange="this.parentNode.classList.add('active');this.parentNode.previousElementSibling.classList.remove('active')"> Below</label>
+    <label class="chip active">
+      <input type="radio" name="direction" value="above" checked hidden
+             onchange="this.parentNode.classList.add('active');this.parentNode.nextElementSibling.classList.remove('active')">
+      Above
+    </label>
+    <label class="chip">
+      <input type="radio" name="direction" value="below" hidden
+             onchange="this.parentNode.classList.add('active');this.parentNode.previousElementSibling.classList.remove('active')">
+      Below
+    </label>
   </div>
-  <div class="field"><input class="input-pw" type="number" step="0.01" min="0.01" name="threshold" placeholder="Price threshold…" required></div>
+
+  <div class="field">
+    <input class="input-pw" type="number" step="0.01" min="0.01" name="threshold" placeholder="Price threshold…" required>
+  </div>
+
   <button class="btn-pw btn-block" type="submit">Save Alert</button>
 </form>
 
@@ -31,14 +56,22 @@
 <div class="pw-card list-card d-flex justify-content-between align-items-center" style="padding:14px 18px;margin-bottom:12px">
   <div>
     <div class="fw-bold">{{ r.product.product_name if r.product else '—' }}</div>
-    <small class="fst-italic text-muted">{{ r.direction|title }} ₱{{ '%g'|format(r.threshold) }}/kg{% if r.is_triggered %} · now ₱{{ r.triggered_price|peso }}{% endif %}</small>
+    <small class="fst-italic text-muted">
+      {{ r.direction|title }} ₱{{ '%g'|format(r.threshold) }}/kg
+      {% if r.is_triggered %} · now ₱{{ r.triggered_price|peso }}{% endif %}
+    </small>
   </div>
   <div class="d-flex align-items-center gap-2">
-    <span class="pill {{ 'red' if r.is_triggered else 'green' }}">{{ 'Triggered' if r.is_triggered else 'Active' }}</span>
-    <form method="POST" action="{{ url_for('resident.delete_rule', rule_id=r.rule_id) }}"><button class="pill red border-0" title="Remove">X</button></form>
+    <span class="pill {{ 'red' if r.is_triggered else 'green' }}">
+      {{ 'Triggered' if r.is_triggered else 'Active' }}
+    </span>
+    <form method="POST" action="{{ url_for('resident.delete_rule', rule_id=r.rule_id) }}">
+      <button class="pill red border-0" title="Remove">X</button>
+    </form>
   </div>
 </div>
 {% else %}
 <div class="text-center small text-dark">You have no alerts yet.</div>
 {% endfor %}
+
 {% endblock %}
