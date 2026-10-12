@@ -253,6 +253,35 @@ def profile():
     )
 
 
+@bp.route("/profile/upload-picture", methods=["POST"])
+@resident_only
+def upload_profile_picture():
+    """Handle profile picture upload for the resident."""
+    photo = request.files.get("profile_pic")
+    if not photo or not photo.filename:
+        flash("No file selected.", "danger")
+        return redirect(url_for("resident.profile"))
+
+    if not allowed_file(photo.filename):
+        flash("Only PNG, JPG, and JPEG files are allowed.", "danger")
+        return redirect(url_for("resident.profile"))
+
+    ext = photo.filename.rsplit(".", 1)[1].lower()
+    filename = secure_filename(f"profile_{current_user.user_id}_{uuid.uuid4().hex[:8]}.{ext}")
+
+    # Save inside static/uploads/profile/
+    profile_dir = os.path.join(current_app.config["UPLOAD_FOLDER"], "profile")
+    os.makedirs(profile_dir, exist_ok=True)
+    photo.save(os.path.join(profile_dir, filename))
+
+    # Update user record
+    current_user.profile_pic = f"uploads/profile/{filename}"
+    current_user.save()
+
+    flash("Profile picture updated successfully!", "success")
+    return redirect(url_for("resident.profile"))
+
+
 @bp.route("/prices/history")
 @resident_only
 def price_history():
