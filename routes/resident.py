@@ -63,19 +63,10 @@ def dashboard():
         elif r.status == "rejected" and r.verified_at:
             events.append(("xmark", f"Your report on {name} was rejected", r.verified_at))
         elif r.status == "pending" and r.created_at:
-            events.append((
-                "clock",
-                f"You submitted a price report for {name}",
-                r.created_at,
-            ))
+            events.append(("clock", f"You submitted a price report for {name}", r.created_at))
         elif r.status == "flagged" and r.created_at:
-            events.append((
-                "alert",
-                f"Your report on {name} was flagged for review",
-                r.created_at,
-            ))
+            events.append(("alert", f"Your report on {name} was flagged for review", r.created_at))
 
-    # Alerts triggered
     for rule in rules:
         if rule.is_triggered and rule.product_id in products:
             word = "below" if rule.direction == "below" else "above"
@@ -85,7 +76,6 @@ def dashboard():
                 rule.triggered_at,
             ))
 
-    # New verified vendors in the user's city
     for v in User.find(role="vendor", is_verified_vendor=True):
         if v.vendor_verified_at and (not current_user.city or v.city == current_user.city):
             events.append((
@@ -127,21 +117,15 @@ def report_price():
             flash("Commodity, market, and price are required.", "danger")
             return redirect(url_for("resident.report_price"))
 
-        # Find or create product by name
         product = next(
             (p for p in products if p.product_name.lower() == commodity_name.lower()),
             None
         )
         if product is None:
-            product = Product(
-                product_name=commodity_name,
-                unit="kg",
-                category="others"
-            )
+            product = Product(product_name=commodity_name, unit="kg", category="others")
             product.save()
             products = sorted(Product.all(), key=lambda p: p.product_name)
 
-        # Find or create market by name
         market = next(
             (m for m in Market.all() if m.market_name.lower() == market_name.lower()),
             None
@@ -218,7 +202,6 @@ def alerts():
     for r in rules:
         r.product = product_map.get(r.product_id)
 
-    # Latest spike detected in the resident's city
     markets = Market.index()
     spike = None
     for a in sorted(Alert.all(), key=lambda a: a.created_at, reverse=True):
@@ -269,17 +252,22 @@ def upload_profile_picture():
     ext = photo.filename.rsplit(".", 1)[1].lower()
     filename = secure_filename(f"profile_{current_user.user_id}_{uuid.uuid4().hex[:8]}.{ext}")
 
-    # Save inside static/uploads/profile/
     profile_dir = os.path.join(current_app.config["UPLOAD_FOLDER"], "profile")
     os.makedirs(profile_dir, exist_ok=True)
     photo.save(os.path.join(profile_dir, filename))
 
-    # Update user record
     current_user.profile_pic = f"uploads/profile/{filename}"
     current_user.save()
 
     flash("Profile picture updated successfully!", "success")
     return redirect(url_for("resident.profile"))
+
+
+@bp.route("/scan")
+@resident_only
+def scan_qr():
+    """QR code scanner page for residents."""
+    return render_template("scan.html")
 
 
 @bp.route("/prices/history")

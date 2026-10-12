@@ -76,15 +76,16 @@ def listings():
 def listing_form(listing_id=None):
     listing = _own_listing(listing_id) if listing_id else None
     products = sorted(Product.all(), key=lambda p: p.product_name)
-    categories = sorted({p.category for p in products if p.category} | {"General"})
 
     if request.method == "POST":
         name = request.form.get("name", "").strip()
         price = request.form.get("price", type=float)
+        # Category is now a free-text input — accept anything the vendor types
         category = request.form.get("category", "General").strip() or "General"
         unit = request.form.get("unit", "kg").strip() or "kg"
         stock = request.form.get("stock_status", "in_stock")
         product_id = request.form.get("product_id", type=int) or None
+
         if not name or price is None or not price > 0 or stock not in STOCK:
             flash("Name and a valid price are required.", "danger")
             return redirect(request.url)
@@ -97,20 +98,28 @@ def listing_form(listing_id=None):
             new_price = None
         else:
             new_price = price
-        listing.name, listing.category, listing.unit = name, category, unit
-        listing.stock_status, listing.product_id = stock, product_id
+
+        listing.name = name
+        listing.category = category
+        listing.unit = unit
+        listing.stock_status = stock
+        listing.product_id = product_id
         listing.updated_at = datetime.utcnow()
         listing.save()
+
         if new_price is not None:
             _apply_price(listing, new_price)
         elif product_id and current_user.market_id:
-            create_report(current_user.user_id, product_id, current_user.market_id, price,
-                          date.today(), vendor_name=current_user.business_name)
+            create_report(
+                current_user.user_id, product_id, current_user.market_id, price,
+                date.today(), vendor_name=current_user.business_name,
+            )
+
         log_action(current_user, "listing_saved", name)
         flash("Listing saved.", "success")
         return redirect(url_for("vendor.listings"))
 
-    return render_template("listing_form.html", listing=listing, products=products, categories=categories)
+    return render_template("listing_form.html", listing=listing, products=products)
 
 
 @bp.route("/listings/<int:listing_id>/delete", methods=["POST"])
@@ -154,8 +163,10 @@ def bulk_prices():
             if price is not None and price > 0 and price != l.price:
                 changed += 1
                 flagged += bool(_apply_price(l, price))
-        flash(f"{changed} price(s) updated." + (f" {flagged} flagged for LGU review." if flagged else ""),
-              "warning" if flagged else "success")
+        flash(
+            f"{changed} price(s) updated." + (f" {flagged} flagged for LGU review." if flagged else ""),
+            "warning" if flagged else "success",
+        )
         return redirect(url_for("vendor.prices"))
     return render_template("vendor_bulk.html", listings=items)
 
@@ -164,8 +175,12 @@ def bulk_prices():
 @vendor_only
 def feedback():
     reviews = sorted(Review.find(vendor_id=current_user.user_id), key=lambda r: r.created_at, reverse=True)
-    return render_template("vendor_feedback.html", reviews=reviews, stats=vendor_stats(current_user.user_id),
-                           market=Market.get(current_user.market_id) if current_user.market_id else None)
+    return render_template(
+        "vendor_feedback.html",
+        reviews=reviews,
+        stats=vendor_stats(current_user.user_id),
+        market=Market.get(current_user.market_id) if current_user.market_id else None,
+    )
 
 
 @bp.route("/reviews/<int:review_id>/reply", methods=["POST"])
@@ -194,6 +209,7 @@ def flag_review(review_id):
 @vendor_only
 def profile():
     return render_template(
-        "vendor_profile.html", scans=_weekly_scans(),
+        "vendor_profile.html",
+        scans=_weekly_scans(),
         market=Market.get(current_user.market_id) if current_user.market_id else None,
     )
