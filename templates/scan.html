@@ -2,27 +2,39 @@
 {% set hide_nav = true %}
 {% block title %}QR Scanner — PresyoWatch{% endblock %}
 {% block content %}
+
 <div class="d-flex align-items-center gap-3 mb-3">
-  <a href="javascript:history.length > 1 ? history.back() : (location.href='{{ url_for('public.home') }}')" class="btn-pw btn-sm-pw"><i class="fa-solid fa-arrow-left"></i></a>
+  <a href="javascript:history.length > 1 ? history.back() : (location.href='{{ url_for('public.home') }}')" class="btn-pw btn-sm-pw">
+    <i class="fa-solid fa-arrow-left"></i>
+  </a>
   <b class="small text-uppercase">QR Scanner</b>
 </div>
 
 <div class="scanner-view">
   <div class="scanner-frame"></div>
   <div id="reader"></div>
-  <div class="scanner-hint" id="hint"><i class="fa-solid fa-camera"></i><br>Point camera at QR</div>
+  <div class="scanner-hint" id="hint">
+    <i class="fa-solid fa-camera"></i><br>Point camera at QR
+  </div>
 </div>
-<div class="text-center my-3"><span class="pill-note" id="status">Align QR code within the frame</span></div>
+
+<div class="text-center my-3">
+  <span class="pill-note" id="status">Align QR code within the frame</span>
+</div>
 
 <div class="text-center">
-  <button class="btn-yellow" id="scanBtn" type="button"><i class="fa-solid fa-magnifying-glass"></i> SCAN NOW</button>
+  <button class="btn-yellow" id="scanBtn" type="button">
+    <i class="fa-solid fa-magnifying-glass"></i> SCAN NOW
+  </button>
   <div class="text-dark my-2">or</div>
   <label class="btn-pw-outline btn-sm-pw" style="color:#5b4a14;border-color:#7a6a2c">
     Upload QR code image
     <input type="file" id="fileInput" accept="image/*" hidden>
   </label>
 </div>
+
 <div id="reader-file" hidden></div>
+
 {% endblock %}
 
 {% block scripts %}
@@ -30,39 +42,122 @@
 <script>
 const statusEl = document.getElementById('status');
 const hint = document.getElementById('hint');
+const scanBtn = document.getElementById('scanBtn');
 let scanner = null;
 
 // Only follow QR codes that point back to this site (prevents open redirects).
 function handle(text) {
   try {
     const url = new URL(text, location.origin);
-    if (url.origin === location.origin) { location.href = url.href; return; }
+    if (url.origin === location.origin) {
+      location.href = url.href;
+      return;
+    }
   } catch (e) {}
   statusEl.textContent = 'Not a PresyoWatch QR code';
 }
 
-document.getElementById('scanBtn').addEventListener('click', async () => {
-  if (typeof Html5Qrcode === 'undefined') { statusEl.textContent = 'Scanner failed to load. Check your connection.'; return; }
+// Start the camera
+async function startCamera() {
+  if (typeof Html5Qrcode === 'undefined') {
+    statusEl.textContent = 'Scanner failed to load. Check your internet connection.';
+    return;
+  }
   if (scanner) return;
+
+  // Check if the browser supports camera access
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    statusEl.textContent = 'Camera not supported in this browser. Please upload a QR image instead.';
+    return;
+  }
+
   scanner = new Html5Qrcode('reader');
+
   try {
-    await scanner.start({ facingMode: 'environment' }, { fps: 10, qrbox: 220 },
-      text => { scanner.stop().catch(() => {}); handle(text); });
+    // Try the environment-facing camera first (back camera on phones)
+    await scanner.start(
+      { facingMode: 'environment' },
+      { fps: 10, qrbox: 220 },
+      (text) => {
+        scanner.stop().catch(() => {});
+        handle(text);
+      },
+      () => {} // ignore scan errors while reading frames
+    );
     hint.style.display = 'none';
-    statusEl.textContent = 'Scanning…';
+    statusEl.textContent = 'Scanning… Point your camera at the QR code.';
+    scanBtn.textContent = 'STOP SCAN';
+    scanBtn.dataset.scanning = 'true';
   } catch (err) {
+    console.error('Camera error:', err);
+
+    // Give a specific reason
+    let msg = 'Camera unavailable. ';
+    if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+      msg += 'Please allow camera access in your browser settings.';
+    } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+      msg += 'No camera found on this device.';
+    } else if (err.name === 'NotReadableError') {
+      msg += 'Camera is being used by another app.';
+    } else if (location.protocol !== 'https:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
+      msg += 'Camera requires HTTPS or localhost. Please upload an image instead.';
+    } else {
+      msg += 'Please upload a QR image instead.';
+    }
+
+    statusEl.textContent = msg;
+
+    // Scroll the upload button into view
+    document.querySelector('label.btn-pw-outline').scrollIntoView({ behavior: 'smooth', block: 'center' });
+
     scanner = null;
-    statusEl.textContent = 'Camera unavailable — allow camera access or upload an image instead.';
+  }
+}
+
+// Stop the camera
+async function stopCamera() {
+  if (!scanner) return;
+  try {
+    await scanner.stop();
+    await scanner.clear();
+  } catch (e) {}
+  scanner = null;
+  hint.style.display = 'block';
+  statusEl.textContent = 'Align QR code within the frame';
+  scanBtn.innerHTML = '<i class="fa-solid fa-magnifying-glass"></i> SCAN NOW';
+  scanBtn.dataset.scanning = 'false';
+}
+
+// Scan button toggles start/stop
+scanBtn.addEventListener('click', async () => {
+  if (scanner) {
+    await stopCamera();
+  } else {
+    await startCamera();
   }
 });
 
-document.getElementById('fileInput').addEventListener('change', async e => {
+// Upload fallback
+document.getElementById('fileInput').addEventListener('change', async (e) => {
   const file = e.target.files[0];
-  if (!file || typeof Html5Qrcode === 'undefined') return;
+  if (!file) return;
+
+  if (typeof Html5Qrcode === 'undefined') {
+    statusEl.textContent = 'Scanner failed to load.';
+    return;
+  }
+
+  statusEl.textContent = 'Reading QR code from image…';
+
   try {
-    const text = await new Html5Qrcode('reader-file').scanFile(file, false);
+    const tempScanner = new Html5Qrcode('reader-file', { verbose: false });
+    const text = await tempScanner.scanFile(file, false);
+    await tempScanner.clear();
     handle(text);
-  } catch (err) { statusEl.textContent = 'No QR code found in that image.'; }
+  } catch (err) {
+    console.error('Upload error:', err);
+    statusEl.textContent = 'No QR code found in that image. Try a clearer photo.';
+  }
 });
 </script>
 {% endblock %}

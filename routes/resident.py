@@ -9,7 +9,7 @@ from flask import (
 from flask_login import current_user
 from werkzeug.utils import secure_filename
 
-from models import Alert, Market, PriceAlertRule, PriceReport, Product, User
+from models import Alert, Market, PriceAlertRule, PriceReport, Product, Review, User
 from utils.helpers import (
     market_price_board, refresh_alert_rules, role_required, vendor_stats,
 )
@@ -30,7 +30,6 @@ def _parse_date(value):
 
 
 def report_accuracy(user_id):
-    """Share of the user's reviewed reports that were verified, on a 5-point scale."""
     stats = [r.status for r in PriceReport.find(user_id=user_id)]
     verified = stats.count("verified")
     judged = verified + sum(1 for s in stats if s in ("rejected", "flagged"))
@@ -44,6 +43,7 @@ def dashboard():
     products = Product.index()
     markets = Market.index()
     my_reports = PriceReport.find(user_id=current_user.user_id)
+    my_reviews = Review.find(user_id=current_user.user_id)
 
     since = date.today() - timedelta(days=7)
     changes = sum(
@@ -52,13 +52,34 @@ def dashboard():
         and (not current_user.city or (markets.get(r.market_id) and markets[r.market_id].city == current_user.city))
     )
 
+    # ---- Build recent activity feed ----
     events = []
+
+    # Price report events
     for r in my_reports:
-        name = products[r.product_id].product_name if r.product_id in products else "a commodity"
+        name = r.commodity_name if r.commodity_name else (
+            products[r.product_id].product_name if r.product_id in products else "a commodity"
+        )
         if r.status == "verified" and r.verified_at:
             events.append(("check", f"Your report on {name} was verified", r.verified_at))
         elif r.status == "rejected" and r.verified_at:
             events.append(("xmark", f"Your report on {name} was rejected", r.verified_at))
+        elif r.status == "pending" and r.created_at:
+            events.append(("clock", f"You submitted a price report for {name}", r.created_at))
+        elif r.status == "flagged" and r.created_at:
+            events.append(("alert", f"Your report on {name} was flagged for review", r.created_at))
+
+    # Feedback events
+    for rev in my_reviews:
+        vendor = User.get(rev.vendor_id)
+        vendor_name = vendor.business_name or vendor.full_name if vendor else "a vendor"
+        events.append((
+            "star",
+            f"You rated {vendor_name} — {rev.rating} star{'s' if rev.rating != 1 else ''}",
+            rev.created_at,
+        ))
+
+    # Alert rules triggered
     for rule in rules:
         if rule.is_triggered and rule.product_id in products:
             word = "below" if rule.direction == "below" else "above"
@@ -67,10 +88,23 @@ def dashboard():
                 f"{products[rule.product_id].product_name} {word} ₱{rule.threshold:g}/kg — now ₱{rule.triggered_price:.2f}",
                 rule.triggered_at,
             ))
+
+    # New verified vendors in the resident's city
     for v in User.find(role="vendor", is_verified_vendor=True):
         if v.vendor_verified_at and (not current_user.city or v.city == current_user.city):
-            events.append(("check", f"New verified vendor near you: {v.business_name or v.full_name}", v.vendor_verified_at))
+            events.append((
+                "check",
+                f"New verified vendor near you: {v.business_name or v.full_name}",
+                v.vendor_verified_at,
+            ))
+
     events.sort(key=lambda e: e[2], reverse=True)
+
+    # Show ALL vendors so residents can rate any of them
+    verified_vendors = sorted(
+        User.find(role="vendor"),
+        key=lambda v: (v.business_name or v.full_name or "").lower(),
+    )
 
     return render_template(
         "resident_dashboard.html",
@@ -79,6 +113,7 @@ def dashboard():
         changes=changes,
         board=market_price_board(current_user.city),
         events=events[:5],
+        verified_vendors=verified_vendors,
     )
 
 
@@ -86,11 +121,10 @@ def dashboard():
 @resident_only
 def report_price():
     products = sorted(Product.all(), key=lambda p: p.product_name)
-    markets = sorted(Market.all(), key=lambda m: m.market_name)
 
     if request.method == "POST":
-        product_id = request.form.get("product_id", type=int)
-        market_id = request.form.get("market_id", type=int)
+        commodity_name = request.form.get("commodity_name", "").strip()
+        market_name = request.form.get("market_name", "").strip()
         price = request.form.get("price", type=float)
         vendor_name = request.form.get("vendor_name", "").strip() or None
         try:
@@ -100,12 +134,33 @@ def report_price():
             return redirect(url_for("resident.report_price"))
         photo = request.files.get("photo")
 
-        if not product_id or not market_id or price is None or not price > 0:
+        if not commodity_name or not market_name or price is None or not price > 0:
             flash("Commodity, market, and price are required.", "danger")
             return redirect(url_for("resident.report_price"))
-        if Product.get(product_id) is None or Market.get(market_id) is None:
-            flash("Unknown commodity or market.", "danger")
-            return redirect(url_for("resident.report_price"))
+
+        product = next(
+            (p for p in products if p.product_name.lower() == commodity_name.lower()),
+            None
+        )
+        if product is None:
+            product = Product(product_name=commodity_name, unit="kg", category="others")
+            product.save()
+            products = sorted(Product.all(), key=lambda p: p.product_name)
+
+        market = next(
+            (m for m in Market.all() if m.market_name.lower() == market_name.lower()),
+            None
+        )
+        if market is None:
+            market = Market(
+                market_name=market_name,
+                city=current_user.city or "Cebu City",
+                address=market_name
+            )
+            market.save()
+
+        product_id = product.product_id
+        market_id = market.market_id
 
         photo_path = None
         if photo and photo.filename and allowed_file(photo.filename):
@@ -116,7 +171,8 @@ def report_price():
             photo_path = filename
 
         _, is_spike = create_report(
-            current_user.user_id, product_id, market_id, price, report_date, photo_path, vendor_name
+            current_user.user_id, product_id, market_id, price,
+            report_date, photo_path, vendor_name
         )
         if is_spike:
             flash(
@@ -128,12 +184,18 @@ def report_price():
             flash("Price report submitted. It is now pending LGU verification.", "success")
         return redirect(url_for("resident.report_price"))
 
-    recent = sorted(PriceReport.find(user_id=current_user.user_id), key=lambda r: r.created_at, reverse=True)[:5]
+    recent = sorted(
+        PriceReport.find(user_id=current_user.user_id),
+        key=lambda r: r.created_at,
+        reverse=True
+    )[:5]
     product_map = {p.product_id: p for p in products}
+    market_map = {m.market_id: m for m in Market.all()}
     for r in recent:
         r.product = product_map.get(r.product_id)
+        r.market = market_map.get(r.market_id)
     return render_template(
-        "report_price.html", products=products, markets=markets, today=date.today(), recent=recent
+        "report_price.html", products=products, today=date.today(), recent=recent
     )
 
 
@@ -144,24 +206,40 @@ def alerts():
     product_map = {p.product_id: p for p in products}
 
     if request.method == "POST":
-        product_id = request.form.get("product_id", type=int)
+        commodity_name = request.form.get("commodity_name", "").strip()
         threshold = request.form.get("threshold", type=float)
         direction = request.form.get("direction", "above")
-        if product_id not in product_map or threshold is None or not threshold > 0 or direction not in ("above", "below"):
-            flash("Choose a commodity and a valid price threshold.", "danger")
-        else:
-            PriceAlertRule(
-                user_id=current_user.user_id, product_id=product_id,
-                direction=direction, threshold=threshold,
-            ).save()
-            flash("Price alert saved.", "success")
+
+        if not commodity_name or threshold is None or not threshold > 0 or direction not in ("above", "below"):
+            flash("Enter a commodity and a valid price threshold.", "danger")
+            return redirect(url_for("resident.alerts"))
+
+        product = next(
+            (p for p in products if p.product_name.lower() == commodity_name.lower()),
+            None
+        )
+        if product is None:
+            product = Product(
+                product_name=commodity_name,
+                unit="kg",
+                category="others"
+            )
+            product.save()
+            products = sorted(Product.all(), key=lambda p: p.product_name)
+
+        PriceAlertRule(
+            user_id=current_user.user_id,
+            product_id=product.product_id,
+            direction=direction,
+            threshold=threshold,
+        ).save()
+        flash("Price alert saved.", "success")
         return redirect(url_for("resident.alerts"))
 
     rules = sorted(refresh_alert_rules(current_user.user_id), key=lambda r: r.created_at, reverse=True)
     for r in rules:
         r.product = product_map.get(r.product_id)
 
-    # Latest spike detected in the resident's city
     markets = Market.index()
     spike = None
     for a in sorted(Alert.all(), key=lambda a: a.created_at, reverse=True):
@@ -196,6 +274,67 @@ def profile():
     )
 
 
+@bp.route("/profile/upload-picture", methods=["POST"])
+@resident_only
+def upload_profile_picture():
+    photo = request.files.get("profile_pic")
+    if not photo or not photo.filename:
+        flash("No file selected.", "danger")
+        return redirect(url_for("resident.profile"))
+
+    if not allowed_file(photo.filename):
+        flash("Only PNG, JPG, and JPEG files are allowed.", "danger")
+        return redirect(url_for("resident.profile"))
+
+    ext = photo.filename.rsplit(".", 1)[1].lower()
+    filename = secure_filename(f"profile_{current_user.user_id}_{uuid.uuid4().hex[:8]}.{ext}")
+
+    profile_dir = os.path.join(current_app.config["UPLOAD_FOLDER"], "profile")
+    os.makedirs(profile_dir, exist_ok=True)
+    photo.save(os.path.join(profile_dir, filename))
+
+    current_user.profile_pic = f"uploads/profile/{filename}"
+    current_user.save()
+
+    flash("Profile picture updated successfully!", "success")
+    return redirect(url_for("resident.profile"))
+
+
+@bp.route("/scan")
+@resident_only
+def scan_qr():
+    return render_template("scan.html")
+
+
+@bp.route("/feedback/submit", methods=["POST"])
+@resident_only
+def submit_feedback():
+    """Handle feedback submitted from the resident dashboard home."""
+    vendor_id = request.form.get("vendor_id", type=int)
+    rating = request.form.get("rating", type=int)
+    comment = request.form.get("comment", "").strip()[:500]
+
+    if not vendor_id or rating is None or rating < 1 or rating > 5:
+        flash("Please select a vendor and a rating between 1 and 5.", "danger")
+        return redirect(url_for("resident.dashboard"))
+
+    vendor = User.get(vendor_id)
+    if not vendor or vendor.role != "vendor":
+        flash("Vendor not found.", "danger")
+        return redirect(url_for("resident.dashboard"))
+
+    Review(
+        vendor_id=vendor_id,
+        user_id=current_user.user_id,
+        user_name=current_user.full_name or "Anonymous",
+        rating=rating,
+        comment=comment or None,
+    ).save()
+
+    flash(f"Thanks! Your feedback for {vendor.business_name or vendor.full_name} has been sent.", "success")
+    return redirect(url_for("resident.dashboard"))
+
+
 @bp.route("/prices/history")
 @resident_only
 def price_history():
@@ -207,7 +346,6 @@ def price_history():
 @bp.route("/api/prices/history-data")
 @resident_only
 def price_history_data():
-    """JSON feed used by Chart.js on the price history page."""
     product_id = request.args.get("product_id", type=int)
     days = request.args.get("days", 30, type=int)
     since = date.today() - timedelta(days=days)

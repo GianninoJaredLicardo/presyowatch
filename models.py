@@ -139,8 +139,8 @@ class User(UserMixin, Model):
         "full_name": None,
         "email": None,
         "password_hash": None,
-        "role": "resident",  # resident | vendor | lgu_staff | dti_da | admin
-        "city": None,  # Cebu City | Lapu-Lapu City
+        "role": "resident",             # resident | vendor | lgu_staff | dti_da | admin
+        "city": None,                    # Cebu City | Lapu-Lapu City
         "contact_number": None,
         "is_verified_vendor": False,
         "subscription_status": "trial",  # active | inactive | trial
@@ -150,11 +150,12 @@ class User(UserMixin, Model):
         "business_name": None,
         "business_address": None,
         "market_id": None,
-        "vendor_status": "active",  # pending | active | suspended (vendors only)
+        "vendor_status": "active",       # pending | active | suspended (vendors only)
         "vendor_verified_at": None,
         "org_name": None,
         "division": None,
         "contact_person": None,
+        "profile_pic": None,             # NEW — path to profile picture
     }
 
     # Flask-Login requires get_id(); primary key column name differs from "id"
@@ -178,13 +179,23 @@ class User(UserMixin, Model):
 class Market(Model):
     collection = "markets"
     id_field = "market_id"
-    defaults = {"market_name": None, "city": None, "latitude": None, "longitude": None}
+    defaults = {
+        "market_name": None,
+        "city": None,
+        "address": None,       # for text-based markets
+        "latitude": None,
+        "longitude": None,
+    }
 
 
 class Product(Model):
     collection = "products"
     id_field = "product_id"
-    defaults = {"product_name": None, "unit": "kg", "category": "General"}
+    defaults = {
+        "product_name": None,
+        "unit": "kg",
+        "category": "General",
+    }
 
 
 class DtiSrp(Model):
@@ -206,10 +217,12 @@ class PriceReport(Model):
         "user_id": None,
         "product_id": None,
         "market_id": None,
+        "commodity_name": None,        # text commodity name
+        "market_name": None,            # text market name
         "price": None,
         "photo_path": None,
         "report_date": None,
-        "status": "pending",  # pending | verified | rejected | flagged
+        "status": "pending",            # pending | verified | rejected | flagged
         "is_spike": False,
         "spike_percent": None,
         "verified_by": None,
@@ -227,8 +240,8 @@ class Alert(Model):
     defaults = {
         "report_id": None,
         "message": None,
-        "severity": "medium",  # low | medium | high
-        "status": "open",  # open | acknowledged | escalated | resolved
+        "severity": "medium",           # low | medium | high
+        "status": "open",               # open | acknowledged | escalated | resolved
         "product_name": None,
         "market_name": None,
         "reported_price": None,
@@ -246,7 +259,7 @@ class ReportExport(Model):
     id_field = "export_id"
     defaults = {
         "generated_by": None,
-        "file_type": None,  # pdf | csv
+        "file_type": None,              # pdf | csv
         "file_path": None,
         "date_from": None,
         "date_to": None,
@@ -269,8 +282,8 @@ class Listing(Model):
         "unit": "kg",
         "price": None,
         "prev_price": None,
-        "stock_status": "in_stock",  # in_stock | low_stock | out_of_stock
-        "product_id": None,  # optional link to a tracked commodity
+        "stock_status": "in_stock",     # in_stock | low_stock | out_of_stock
+        "product_id": None,             # optional link to a tracked commodity
         "updated_at": datetime.utcnow,
         "created_at": datetime.utcnow,
     }
@@ -297,7 +310,7 @@ class PriceAlertRule(Model):
     defaults = {
         "user_id": None,
         "product_id": None,
-        "direction": "above",  # above | below
+        "direction": "above",           # above | below
         "threshold": None,
         "is_triggered": False,
         "triggered_price": None,
@@ -317,11 +330,11 @@ class Subscription(Model):
     id_field = "sub_id"
     defaults = {
         "user_id": None,
-        "plan": "quarterly",  # monthly | quarterly | annual
-        "status": "active",  # active | cancelled
+        "plan": "quarterly",            # monthly | quarterly | annual
+        "status": "active",             # active | cancelled
         "started_at": datetime.utcnow,
         "renews_at": None,
-        "payment_type": None,  # card | gcash | maya | bank
+        "payment_type": None,           # card | gcash | maya | bank
         "payment_label": None,
         "payment_last4": None,
         "payment_expiry": None,

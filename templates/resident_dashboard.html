@@ -1,50 +1,152 @@
 {% extends "base.html" %}
-{% from "_ui.html" import stat, arrow %}
-{% block title %}Home — PresyoWatch{% endblock %}
+{% block title %}Dashboard — PresyoWatch{% endblock %}
 {% block content %}
+
+<style>
+  .star-picker {
+    display: flex;
+    flex-direction: row-reverse;
+    justify-content: flex-end;
+    font-size: 1.8rem;
+    gap: 4px;
+  }
+  .star-picker input { display: none; }
+  .star-picker label {
+    color: #ccc;
+    cursor: pointer;
+    transition: color 0.15s;
+  }
+  .star-picker label:hover,
+  .star-picker label:hover ~ label,
+  .star-picker input:checked ~ label {
+    color: #F5A623;
+  }
+
+  .activity-icon { margin-top: 4px; }
+  .activity-check { color: #2E7D32; }
+  .activity-xmark { color: #D32F2F; }
+  .activity-clock { color: #666; }
+  .activity-alert { color: #F5A623; }
+  .activity-star { color: #F5A623; }
+</style>
+
+<!-- Welcome Card -->
 <div class="pw-card mt-3">
-  <div class="ms-2">
-    <div>Good day,</div>
-    <h4 style="color:#0f6b33;margin:0">{{ nav_current_user.full_name }}</h4>
-    <div class="small text-secondary mb-3">{{ nav_current_user.city or 'Philippines' }}{% if nav_current_user.address %} · {{ nav_current_user.address }}{% endif %}</div>
+  <div class="small text-muted">Good day,</div>
+  <h4 class="mb-0" style="color:#2E7D32;">{{ current_user.full_name or 'Resident' }}</h4>
+  <div class="small text-muted mb-3">
+    {{ current_user.city or 'Lapu-Lapu City' }}{% if current_user.address %} · {{ current_user.address }}{% endif %}
   </div>
-  <div class="stat-row c3">
-    {{ stat(report_count, 'Reports') }}
-    {{ stat(alert_count, 'Alerts') }}
-    {{ stat(changes, 'Changes') }}
+
+  <div class="d-flex gap-2">
+    <div class="pw-card tint text-center flex-fill mb-0" style="padding:12px;">
+      <div style="font-size:1.3rem;font-weight:600;">{{ report_count or 0 }}</div>
+      <div class="small text-muted">Reports</div>
+    </div>
+    <div class="pw-card tint text-center flex-fill mb-0" style="padding:12px;">
+      <div style="font-size:1.3rem;font-weight:600;">{{ alert_count or 0 }}</div>
+      <div class="small text-muted">Alerts</div>
+    </div>
+    <div class="pw-card tint text-center flex-fill mb-0" style="padding:12px;">
+      <div style="font-size:1.3rem;font-weight:600;">{{ changes or 0 }}</div>
+      <div class="small text-muted">Changes</div>
+    </div>
   </div>
 </div>
 
-<a href="{{ url_for('public.scan') }}" class="pw-card d-flex align-items-center gap-3 text-decoration-none">
-  <i class="fa-solid fa-qrcode" style="font-size:3rem;color:#333"></i>
+<!-- QR Scan Banner -->
+<a href="{{ url_for('resident.scan_qr') }}" class="pw-card d-flex align-items-center gap-3 mb-3" style="text-decoration:none;color:inherit;">
+  <i class="fa-solid fa-qrcode" style="font-size:2rem;color:#2E7D32;"></i>
   <div>
-    <div class="fw-bold" style="color:#0f6b33;font-size:1.1rem">Scan QR to track prices</div>
-    <div class="small fst-italic text-muted">Tap to scan any market QR code</div>
+    <div class="fw-semibold" style="color:#2E7D32;">Scan QR to track prices</div>
+    <div class="small text-muted fst-italic">Tap to scan any market QR code</div>
   </div>
 </a>
 
+<!-- Today's Market Prices -->
 <h5 class="page-title sm">Today's Market Prices</h5>
-<div class="pw-card tint">
-  {% for row in board %}
-  <div class="row-line">
-    <span>{{ row.name }} <small class="text-muted">(per {{ row.unit }})</small></span>
-    <span class="price {{ row.direction or '' }}">₱{{ row.price|peso }} {{ arrow(row.direction) }}</span>
-  </div>
+<div class="pw-card">
+  {% if board %}
+    {% for item in board[:5] %}
+      <div class="row-line">
+        <div>{{ item.name }}</div>
+        <div>₱{{ item.price|peso }}/kg</div>
+      </div>
+    {% endfor %}
   {% else %}
-  <div class="text-muted text-center">No price data yet.</div>
-  {% endfor %}
-  <div class="text-end mt-2"><a class="small" href="{{ url_for('resident.price_history') }}">View price trends &rarr;</a></div>
+    <div class="text-center text-muted">No price data yet.</div>
+  {% endif %}
+  <div class="text-end mt-2">
+    <a href="{{ url_for('resident.price_history') }}" class="small">View price trends →</a>
+  </div>
 </div>
 
-<h5 class="page-title sm">Recent Activity</h5>
+<!-- Recent Activity -->
+<h5 class="page-title sm mt-3">Recent Activity</h5>
 <div class="pw-card tint">
-  {% for icon, text, when in events %}
-  <div class="d-flex gap-3 py-2">
-    <i class="fa-solid fa-{{ {'check': 'check', 'xmark': 'xmark', 'alert': 'triangle-exclamation'}[icon] }}" style="color:{{ '#c0392b' if icon != 'check' else '#467348' }};margin-top:4px"></i>
-    <div><div>{{ text }}</div><small class="text-muted fst-italic">{{ when|timeago }}</small></div>
-  </div>
+  {% if events %}
+    {% for ev in events %}
+    <div class="d-flex gap-2 align-items-start mb-2">
+      {% if ev[0] == 'star' %}
+        <i class="fa-solid fa-star activity-icon activity-star"></i>
+      {% elif ev[0] == 'check' %}
+        <i class="fa-solid fa-circle-check activity-icon activity-check"></i>
+      {% elif ev[0] == 'xmark' %}
+        <i class="fa-solid fa-circle-xmark activity-icon activity-xmark"></i>
+      {% elif ev[0] == 'clock' %}
+        <i class="fa-solid fa-clock activity-icon activity-clock"></i>
+      {% else %}
+        <i class="fa-solid fa-triangle-exclamation activity-icon activity-alert"></i>
+      {% endif %}
+      <div class="small">
+        {{ ev[1] }}
+        <div class="text-muted" style="font-size:0.75rem;">
+          {{ ev[2]|localtime('%b %d, %I:%M %p') }}
+        </div>
+      </div>
+    </div>
+    {% endfor %}
   {% else %}
-  <div class="text-muted text-center">Nothing yet — submit a price report to get started.</div>
-  {% endfor %}
+    <div class="text-center text-muted">Nothing yet — submit a price report to get started.</div>
+  {% endif %}
 </div>
+
+<!-- Share Your Feedback -->
+<h5 class="page-title sm mt-3">Share Your Feedback</h5>
+<div class="pw-card">
+  <form method="POST" action="{{ url_for('resident.submit_feedback') }}">
+
+    <div class="field">
+      <label class="form-label">Select Vendor</label>
+      <select class="input-pw" name="vendor_id" required>
+        <option value="">— choose a vendor —</option>
+        {% for v in verified_vendors %}
+          <option value="{{ v.user_id }}">{{ v.business_name or v.full_name }}{% if v.city %} ({{ v.city }}){% endif %}</option>
+        {% endfor %}
+      </select>
+      {% if not verified_vendors %}
+        <div class="small text-muted mt-1">No vendors have been registered yet.</div>
+      {% endif %}
+    </div>
+
+    <div class="field">
+      <label class="form-label">Your Rating</label>
+      <div class="star-picker">
+        {% for i in range(5, 0, -1) %}
+          <input type="radio" id="star{{ i }}" name="rating" value="{{ i }}" required>
+          <label for="star{{ i }}" title="{{ i }} star{{ 's' if i != 1 }}">★</label>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="field">
+      <label class="form-label">Comment</label>
+      <textarea class="input-pw" name="comment" rows="3" maxlength="500"
+                placeholder="Tell us about this vendor's pricing and quality…" required></textarea>
+    </div>
+
+    <button class="btn-pw btn-block" type="submit">Send Feedback</button>
+  </form>
+</div>
+
 {% endblock %}
