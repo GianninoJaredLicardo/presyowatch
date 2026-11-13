@@ -8,6 +8,25 @@
   <a class="btn-pw btn-sm-pw" href="{{ url_for('vendor.listing_form') }}">+ Add</a>
 </div>
 
+<!-- CSV Import/Export Section -->
+<div class="pw-card tint mt-3 mb-3">
+  <div class="d-flex justify-content-between align-items-center">
+    <div>
+      <b class="d-block text-dark">Bulk Upload</b>
+      <small class="text-muted">Add multiple products using a CSV file.</small>
+    </div>
+    <div class="d-flex gap-2">
+      <a href="{{ url_for('vendor.download_template') }}" class="btn-pw-outline btn-sm-pw" style="padding: 6px 12px; font-size: 0.8rem;">Download Template</a>
+      <form method="POST" action="{{ url_for('vendor.import_listings') }}" enctype="multipart/form-data" class="d-inline">
+        <input type="file" name="csv_file" accept=".csv" id="csvUpload" hidden onchange="this.form.submit()">
+        <label for="csvUpload" class="btn-pw btn-sm-pw" style="padding: 6px 12px; font-size: 0.8rem; cursor: pointer; margin-bottom: 0;">
+          Import CSV
+        </label>
+      </form>
+    </div>
+  </div>
+</div>
+
 <form method="GET" class="field mt-3">
   <input class="input-pw" type="search" name="q" value="{{ q }}" placeholder="Search listings…">
 </form>

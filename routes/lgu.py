@@ -12,7 +12,7 @@ from flask_login import current_user
 
 from config import PLANS
 from models import (
-    Alert, AuditLog, BillingRecord, Market, PriceReport, Product, ReportExport,
+    Alert, AuditLog, BillingRecord, DtiSrp, Listing, Market, PriceReport, Product, ReportExport,
     Subscription, User,
 )
 from utils.helpers import get_settings, log_action, role_required, save_settings
@@ -219,6 +219,42 @@ def stats():
         badge=badge, badge_pct={k: round(100 * v / badge_total) for k, v in badge.items()},
         compliance=compliance, threshold=threshold,
     )
+
+
+# ---- flagged vendors --------------------------------------------------------
+@bp.route("/flagged-vendors")
+@lgu_only
+def flagged_vendors():
+    """List vendors whose prices exceed the DTI SRP."""
+    listings = Listing.all()
+    vendors = {v.user_id: v for v in User.find(role="vendor")}
+    products = Product.index()
+    
+    srps = {}
+    for srp in DtiSrp.all():
+        current = srps.get(srp.product_id)
+        if current is None or (srp.bulletin_date, srp.srp_id) > (current.bulletin_date, current.srp_id):
+            srps[srp.product_id] = srp
+
+    flagged = []
+    for l in listings:
+        if l.product_id and l.product_id in srps and l.price:
+            srp_price = float(srps[l.product_id].srp_price)
+            if float(l.price) > srp_price:
+                vendor = vendors.get(l.vendor_id)
+                product = products.get(l.product_id)
+                deviation = float(l.price) - srp_price
+                flagged.append({
+                    "vendor_name": vendor.business_name or vendor.full_name if vendor else "Unknown Vendor",
+                    "product_name": product.product_name if product else l.name,
+                    "vendor_price": float(l.price),
+                    "standard_price": srp_price,
+                    "deviation": deviation,
+                    "vendor_id": l.vendor_id
+                })
+    
+    flagged.sort(key=lambda x: x["deviation"], reverse=True)
+    return render_template("lgu_flagged_vendors.html", flagged=flagged)
 
 
 # ---- subscription ---------------------------------------------------------------

@@ -1,6 +1,8 @@
+import io
+import csv
 from datetime import date, datetime, timedelta
 
-from flask import Blueprint, abort, render_template, request, redirect, url_for, flash
+from flask import Blueprint, abort, render_template, request, redirect, url_for, flash, Response
 from flask_login import current_user
 
 from models import Listing, Market, Product, Review, ScanEvent
@@ -25,7 +27,6 @@ def _own_listing(listing_id):
 
 
 def _apply_price(listing, new_price):
-    """Update a listing price; for tracked commodities also file a price report so spike detection runs."""
     if new_price == listing.price:
         return None
     listing.prev_price = listing.price
@@ -70,6 +71,73 @@ def listings():
     return render_template("vendor_listings.html", listings=items, q=request.args.get("q", ""))
 
 
+# ---- CSV TEMPLATE DOWNLOAD ----
+@bp.route("/listings/template")
+@vendor_only
+def download_template():
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["Item Name", "Category", "Price", "Unit", "Stock Status"])
+    writer.writerow(["White Rice", "Grains", "52.00", "kg", "in_stock"])
+    writer.writerow(["Red Onion", "Vegetables", "120.00", "kg", "low_stock"])
+    
+    response = Response(output.getvalue(), mimetype="text/csv")
+    response.headers["Content-Disposition"] = "attachment; filename=presyowatch_listing_template.csv"
+    return response
+
+
+# ---- CSV IMPORT ----
+@bp.route("/listings/import", methods=["POST"])
+@vendor_only
+def import_listings():
+    file = request.files.get("csv_file")
+    if not file or not file.filename.endswith('.csv'):
+        flash("Please upload a valid CSV file.", "danger")
+        return redirect(url_for("vendor.listings"))
+
+    try:
+        stream = io.StringIO(file.stream.read().decode("UTF8"), newline=None)
+        csv_input = csv.DictReader(stream)
+        
+        imported_count = 0
+        for row in csv_input:
+            name = row.get("Item Name", "").strip()
+            category = row.get("Category", "General").strip() or "General"
+            price_str = row.get("Price", "0").strip()
+            unit = row.get("Unit", "kg").strip() or "kg"
+            stock = row.get("Stock Status", "in_stock").strip().lower()
+
+            if not name or not price_str:
+                continue
+            try:
+                price = float(price_str)
+                if price <= 0: continue
+            except ValueError:
+                continue
+                
+            if stock not in STOCK:
+                stock = "in_stock"
+
+            Listing(
+                vendor_id=current_user.user_id,
+                name=name,
+                category=category,
+                price=price,
+                unit=unit,
+                stock_status=stock,
+                updated_at=datetime.utcnow()
+            ).save()
+            imported_count += 1
+            
+        log_action(current_user, "listings_imported", f"Imported {imported_count} items")
+        flash(f"Successfully imported {imported_count} listings from CSV.", "success")
+        
+    except Exception as e:
+        flash(f"Error reading CSV file: {str(e)}", "danger")
+
+    return redirect(url_for("vendor.listings"))
+
+
 @bp.route("/listings/new", methods=["GET", "POST"])
 @bp.route("/listings/<int:listing_id>/edit", methods=["GET", "POST"])
 @vendor_only
@@ -80,7 +148,6 @@ def listing_form(listing_id=None):
     if request.method == "POST":
         name = request.form.get("name", "").strip()
         price = request.form.get("price", type=float)
-        # Category is now a free-text input — accept anything the vendor types
         category = request.form.get("category", "General").strip() or "General"
         unit = request.form.get("unit", "kg").strip() or "kg"
         stock = request.form.get("stock_status", "in_stock")
