@@ -89,6 +89,6 @@
 </div>
 
 <form method="POST" action="{{ url_for('lgu.cancel_subscription') }}" onsubmit="return confirm('Cancel your subscription?')">
-  <button class="btn-block border-0 text-white py-3" style="background:#8b4a3a;border-radius:10px;box-shadow:0 3px 6px rgba(0,0,0,.2)" type="submit">Cancel Subscription</button>
+  <button class="btn-danger-soft btn-block" type="submit">Cancel Subscription</button>
 </form>
 {% endblock %}

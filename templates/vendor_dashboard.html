@@ -22,13 +22,14 @@
 </div>
 {% endif %}
 
-{% if u.is_price_flagged %}
+{% for l in flagged_items %}
 <div class="spike-card">
-  <div class="title"><i class="fa-solid fa-flag"></i> Your stall is flagged for overpricing</div>
-  <div class="small mt-1">{{ u.price_flag_reason }}. Shoppers see an overpricing notice on your stall and in search results.
-    Lower your prices to the standard price, then ask your LGU to remove the flag.</div>
+  <div class="title"><i class="fa-solid fa-flag"></i> {{ l.name }} is flagged for overpricing</div>
+  <div class="small mt-1">{{ l.price_flag_reason }}. Shoppers see an overpricing notice on this item.
+    Lower the price, then ask your LGU to remove the flag.</div>
+  <div class="text-end mt-2"><a class="btn-pw btn-sm-pw" href="{{ url_for('vendor.listing_form', listing_id=l.listing_id) }}">Update price</a></div>
 </div>
-{% endif %}
+{% endfor %}
 
 {% for l in warnings %}
 <div class="spike-card">

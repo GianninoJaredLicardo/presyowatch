@@ -59,6 +59,7 @@ def dashboard():
         "vendor_dashboard.html",
         listings=listings,
         needs_attention=[l for l in listings if l.stock_status != "in_stock"],
+        flagged_items=[l for l in listings if l.is_price_flagged],
         # LGU price warnings from Flagged Vendors; one clears once the vendor updates that listing.
         warnings=[l for l in listings if l.lgu_warned_at and l.lgu_warned_at >= (l.updated_at or l.lgu_warned_at)],
         stats=vendor_stats(current_user.user_id),

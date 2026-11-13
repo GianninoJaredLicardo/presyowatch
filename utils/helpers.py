@@ -28,7 +28,7 @@ def read_name_fields():
     first = request.form.get("first_name", "").strip()
     last = request.form.get("last_name", "").strip()
     middle = request.form.get("middle_name", "").strip()
-    if request.form.get("middle_na"):
+    if request.form.get("middle_na") or request.form.get("no_middle_name"):
         middle = NO_MIDDLE_NAME
     if not first or not last:
         return None, "First name and last name are required."

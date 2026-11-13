@@ -16,8 +16,8 @@
 <div class="pw-card">
   <div class="card-title">📱 QR Code Management</div>
   <div class="d-flex gap-3">
-    <a class="btn-soft flex-fill" href="{{ url_for('lgu.qr_codes') }}" style="border-radius:12px">Generate QR</a>
-    <a class="btn-pw-outline flex-fill" href="{{ url_for('lgu.download_all_qr') }}" style="border-radius:12px">Download</a>
+    <a class="btn-soft flex-fill" href="{{ url_for('lgu.qr_codes') }}">Generate QR</a>
+    <a class="btn-pw-outline flex-fill" href="{{ url_for('lgu.download_all_qr') }}">Download</a>
   </div>
 </div>
 
@@ -43,8 +43,8 @@
   <div class="info-label">{{ u.email }}</div>
 </div>
 
-<a class="btn-pale btn-block mb-3" style="border-radius:12px;padding:13px" href="{{ url_for('lgu.logs') }}">System Logs</a>
-<a class="btn-pale btn-block mb-3" style="border-radius:12px;padding:13px" href="{{ url_for('auth.change_password') }}">Change Password</a>
+<a class="btn-pale btn-block mb-3" href="{{ url_for('lgu.logs') }}">System Logs</a>
+<a class="btn-pale btn-block mb-3" href="{{ url_for('auth.change_password') }}">Change Password</a>
 <a class="btn-logout" href="{{ url_for('auth.logout') }}">Log out</a>
 <div class="small-note text-center mt-2" style="color:#dfe8d5">Email/SMS toggles are saved as preferences; delivery is not connected yet.</div>
 {% endblock %}

@@ -21,5 +21,5 @@
 <div class="pw-card text-center text-muted">Add listings first, then manage their prices here.</div>
 {% endfor %}
 
-{% if listings %}<a class="btn-pw-outline btn-block" href="{{ url_for('vendor.bulk_prices') }}" style="padding:14px;border-radius:16px">Bulk Price Update</a>{% endif %}
+{% if listings %}<a class="btn-pw-outline btn-block" href="{{ url_for('vendor.bulk_prices') }}">Bulk Price Update</a>{% endif %}
 {% endblock %}

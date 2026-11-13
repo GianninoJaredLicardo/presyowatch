@@ -1,0 +1,321 @@
+{# Landing page: live price trends for every product (data from utils/trends.py). #}
+{% macro peso_txt(v) %}{% if v is not none %}₱{{ '{:,.2f}'.format(v) }}{% else %}—{% endif %}{% endmacro %}
+
+{% macro trends_section(trends) %}
+{% set st = trends.stats %}
+<section class="trends" id="trends" aria-labelledby="trends-title">
+  <div class="section-h" id="trends-title">Live Price Trends</div>
+  <div class="text-center small text-secondary mb-3 px-4">
+    Average prices from LGU-verified reports. Tap a product to see its full trend.
+  </div>
+
+  <div class="tr-stats">
+    <div class="tr-stat"><span>Products tracked</span><b>{{ st.products }}</b><small>{{ st.with_data }} with recent prices</small></div>
+    <div class="tr-stat"><span>Verified reports</span><b>{{ '{:,}'.format(st.reports_30d) }}</b><small>last 30 days</small></div>
+    <div class="tr-stat"><span>Markets</span><b>{{ st.markets }}</b><small>monitored</small></div>
+    <div class="tr-stat"><span>Price spikes</span><b>{{ st.spikes_7d }}</b><small>last 7 days</small></div>
+  </div>
+
+  {% if st.rising or st.falling %}
+  <div class="tr-movers">
+    <span class="tr-delta up"><i class="fa-solid fa-arrow-trend-up"></i> {{ st.rising }} rising</span>
+    <span class="tr-delta down"><i class="fa-solid fa-arrow-trend-down"></i> {{ st.falling }} falling</span>
+    <span class="text-muted">vs. the week before</span>
+  </div>
+  {% endif %}
+
+  <div class="tr-filters">
+    <div class="tr-search">
+      <i class="fa-solid fa-magnifying-glass"></i>
+      <input type="search" id="trSearch" placeholder="Search products…" autocomplete="off" aria-label="Search products">
+    </div>
+    <div class="tr-chips" role="group" aria-label="Filter by category">
+      <button type="button" class="tr-chip active" data-cat="">All</button>
+      {% for c in trends.categories %}<button type="button" class="tr-chip" data-cat="{{ c }}">{{ c }}</button>{% endfor %}
+    </div>
+  </div>
+
+  <div class="tr-grid" id="trGrid">
+    {% for i in trends['items'] %}
+    <button type="button" class="tr-card" data-id="{{ i.id }}" data-cat="{{ i.category }}" data-name="{{ i.name|lower }}">
+      <div class="tr-card-top">
+        <div class="tr-name"><b>{{ i.name }}</b><small>{{ i.category }} · per {{ i.unit }}</small></div>
+        {% if i.change is not none %}
+          {% if i.change > 0 %}<span class="tr-delta up" title="Up vs. last week"><i class="fa-solid fa-arrow-up"></i> {{ i.change }}%</span>
+          {% elif i.change < 0 %}<span class="tr-delta down" title="Down vs. last week"><i class="fa-solid fa-arrow-down"></i> {{ i.change|abs }}%</span>
+          {% else %}<span class="tr-delta flat" title="No change vs. last week"><i class="fa-solid fa-minus"></i> 0%</span>{% endif %}
+        {% endif %}
+      </div>
+      {% if i.current is not none %}
+      <div class="tr-card-mid">
+        <div class="tr-price">{{ peso_txt(i.current) }}</div>
+        {% if i.spark %}
+        <svg class="tr-spark" viewBox="0 0 120 34" width="120" height="34" aria-hidden="true">
+          <polyline points="{{ i.spark }}" fill="none" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+          <circle cx="{{ i.spark_end[0] }}" cy="{{ i.spark_end[1] }}" r="3.5"/>
+        </svg>
+        {% endif %}
+      </div>
+      <div class="tr-card-foot">
+        {% if i.srp %}
+          <span class="{{ 'tr-srp over' if i.above_srp else 'tr-srp' }}">
+            {% if i.above_srp %}<i class="fa-solid fa-triangle-exclamation"></i> Above SRP {{ peso_txt(i.srp) }}{% else %}<i class="fa-solid fa-check"></i> SRP {{ peso_txt(i.srp) }}{% endif %}
+          </span>
+        {% else %}<span class="text-muted">No DTI SRP</span>{% endif %}
+        <span class="text-muted">{{ i.reports }} report{{ 's' if i.reports != 1 }}</span>
+      </div>
+      {% else %}
+      <div class="tr-nodata">No verified prices yet</div>
+      {% endif %}
+    </button>
+    {% endfor %}
+  </div>
+  <div class="tr-empty" id="trEmpty" hidden>No products match your search.</div>
+
+  {# Detail panel for the selected product #}
+  <div class="tr-detail" id="trDetail" hidden>
+    <div class="tr-detail-head">
+      <div><b id="trdName"></b><small id="trdSub"></small></div>
+      <button type="button" class="tr-close" id="trdClose" aria-label="Close trend"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="tr-range" role="group" aria-label="Time range">
+      <button type="button" data-days="7">7D</button>
+      <button type="button" data-days="30" class="active">30D</button>
+      <button type="button" data-days="90">90D</button>
+    </div>
+    <div class="tr-chart-wrap">
+      <svg id="trdChart" class="tr-chart" viewBox="0 0 600 240" role="img"></svg>
+      <div class="tr-tip" id="trdTip" hidden></div>
+    </div>
+    <div class="tr-nodata" id="trdNoData" hidden>No verified prices in this range.</div>
+    <details class="tr-table">
+      <summary>Show as table</summary>
+      <table class="table table-sm mb-0"><thead><tr><th>Date</th><th class="text-end">Average price</th></tr></thead><tbody id="trdRows"></tbody></table>
+    </details>
+  </div>
+
+  <div class="text-center mt-3">
+    <a class="btn-pw-outline btn-sm-pw" href="{{ url_for('public.price_search') }}"><i class="fa-solid fa-magnifying-glass"></i> Compare prices by vendor &amp; market</a>
+  </div>
+
+  <script type="application/json" id="trSeries">{{ trends.chart|tojson }}</script>
+</section>
+{% endmacro %}
+
+
+{% macro trends_assets() %}
+<style>
+  .trends { padding: 0 16px; }
+  .tr-stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 12px; }
+  @media (min-width: 560px) { .tr-stats { grid-template-columns: repeat(4, 1fr); } }
+  .tr-stat { background: #fff; border: 1px solid var(--line); border-radius: 16px; padding: 12px 14px; display: flex; flex-direction: column; box-shadow: var(--shadow-sm); }
+  .tr-stat span { font-size: .75rem; color: var(--muted); font-weight: 600; }
+  .tr-stat b { font-size: 1.45rem; color: var(--title); line-height: 1.2; font-variant-numeric: tabular-nums; }
+  .tr-stat small { font-size: .7rem; color: var(--muted); }
+  .tr-movers { display: flex; gap: 10px; align-items: center; justify-content: center; flex-wrap: wrap; font-size: .8rem; margin-bottom: 12px; }
+
+  .tr-filters { display: flex; flex-direction: column; gap: 10px; margin-bottom: 12px; position: sticky; top: 0; z-index: 5; background: var(--bg); padding: 8px 0; }
+  .tr-search { position: relative; }
+  .tr-search i { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: #9aa395; font-size: .85rem; }
+  .tr-search input { width: 100%; border: 1.5px solid var(--line); border-radius: 14px; padding: 11px 14px 11px 38px; background: #fff; font-size: .92rem; outline: none; }
+  .tr-search input:focus { border-color: var(--primary); box-shadow: 0 0 0 4px rgba(31, 122, 69, .13); }
+  .tr-chips { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; }
+  .tr-chips::-webkit-scrollbar { display: none; }
+  .tr-chip { flex: 0 0 auto; border: 1.5px solid var(--line); background: #fff; color: var(--ink); border-radius: 999px; padding: 6px 14px; font-size: .8rem; font-weight: 600; cursor: pointer; transition: all .15s; }
+  .tr-chip:hover { border-color: var(--primary); color: var(--primary); }
+  .tr-chip.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+
+  .tr-grid { display: grid; grid-template-columns: 1fr; gap: 10px; }
+  @media (min-width: 480px) { .tr-grid { grid-template-columns: 1fr 1fr; } }
+  .tr-card { text-align: left; background: #fff; border: 1.5px solid var(--line); border-radius: 16px; padding: 12px 14px; cursor: pointer;
+    display: flex; flex-direction: column; gap: 6px; box-shadow: var(--shadow-sm); transition: border-color .15s, box-shadow .15s, transform .12s; width: 100%; color: inherit; }
+  .tr-card:hover { border-color: #b9dcc6; transform: translateY(-1px); box-shadow: 0 8px 20px rgba(16, 24, 16, .08); }
+  .tr-card:focus-visible { outline: none; box-shadow: 0 0 0 4px rgba(31, 122, 69, .22); }
+  .tr-card.selected { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(31, 122, 69, .15); }
+  .tr-card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+  .tr-name { display: flex; flex-direction: column; min-width: 0; }
+  .tr-name b { font-size: .95rem; color: var(--title); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tr-name small { font-size: .72rem; color: var(--muted); }
+  .tr-card-mid { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .tr-price { font-size: 1.35rem; font-weight: 800; color: var(--ink); font-variant-numeric: tabular-nums; }
+  .tr-spark polyline { stroke: #b5bdb0; }
+  .tr-spark circle { fill: var(--primary); stroke: #fff; stroke-width: 2; }
+  .tr-card-foot { display: flex; justify-content: space-between; gap: 8px; font-size: .72rem; }
+  .tr-srp { color: var(--muted); font-weight: 600; }
+  .tr-srp.over { color: var(--red-dark); }
+  .tr-nodata { color: var(--muted); font-size: .82rem; padding: 6px 0 2px; }
+  .tr-empty { text-align: center; color: var(--muted); padding: 18px; }
+
+  .tr-delta { display: inline-flex; align-items: center; gap: 4px; font-size: .75rem; font-weight: 700; padding: 3px 8px; border-radius: 999px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .tr-delta.up { background: #fdecea; color: #b42318; }      /* price going up = bad for shoppers */
+  .tr-delta.down { background: #e6f2ea; color: #165c34; }    /* price going down = good */
+  .tr-delta.flat { background: #eef1ec; color: var(--muted); }
+
+  .tr-detail { background: #fff; border: 1.5px solid var(--line); border-radius: 18px; padding: 14px; margin-top: 12px; box-shadow: var(--shadow-md); scroll-margin-top: 120px; }
+  .tr-detail-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+  .tr-detail-head b { display: block; font-size: 1.05rem; color: var(--title); }
+  .tr-detail-head small { color: var(--muted); font-size: .78rem; }
+  .tr-close { border: 0; background: var(--surface-2); color: var(--muted); width: 32px; height: 32px; border-radius: 50%; cursor: pointer; }
+  .tr-close:hover { background: var(--red-soft); color: var(--red-dark); }
+  .tr-range { display: inline-flex; gap: 4px; background: var(--surface-2); padding: 3px; border-radius: 10px; margin: 10px 0 6px; }
+  .tr-range button { border: 0; background: transparent; padding: 5px 12px; border-radius: 8px; font-size: .78rem; font-weight: 700; color: var(--muted); cursor: pointer; }
+  .tr-range button.active { background: #fff; color: var(--primary); box-shadow: 0 1px 3px rgba(0,0,0,.1); }
+  .tr-chart-wrap { position: relative; }
+  .tr-chart { width: 100%; height: auto; display: block; overflow: visible; touch-action: pan-y; }
+  .tr-chart .grid { stroke: #edf0ea; stroke-width: 1; }
+  .tr-chart .axis-t { fill: #7d8778; font-size: 11px; }
+  .tr-chart .area { fill: var(--primary); fill-opacity: .1; }
+  .tr-chart .line { fill: none; stroke: var(--primary); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+  .tr-chart .srp { stroke: #8a5a00; stroke-width: 1; vector-effect: non-scaling-stroke; }
+  .tr-chart .srp-t { fill: #8a5a00; font-size: 11px; font-weight: 600; }
+  .tr-chart .dot { fill: var(--primary); stroke: #fff; stroke-width: 2; }
+  .tr-chart .end-t { fill: var(--ink); font-size: 12px; font-weight: 700; }
+  .tr-chart .cross { stroke: #9aa395; stroke-width: 1; vector-effect: non-scaling-stroke; }
+  .tr-tip { position: absolute; top: 0; pointer-events: none; background: #13321f; color: #fff; border-radius: 10px; padding: 6px 10px; font-size: .78rem;
+    box-shadow: 0 6px 16px rgba(0,0,0,.18); white-space: nowrap; transform: translateX(-50%); }
+  .tr-tip b { display: block; font-size: .9rem; }
+  .tr-table { margin-top: 8px; font-size: .82rem; }
+  .tr-table summary { cursor: pointer; color: var(--primary); font-weight: 600; }
+  .tr-table table { margin-top: 6px; }
+</style>
+<script>
+(function () {
+  var grid = document.getElementById("trGrid");
+  if (!grid) return;
+  var data = JSON.parse(document.getElementById("trSeries").textContent || "{}");
+  var cards = Array.prototype.slice.call(grid.querySelectorAll(".tr-card"));
+  var search = document.getElementById("trSearch"), empty = document.getElementById("trEmpty");
+  var chips = Array.prototype.slice.call(document.querySelectorAll(".tr-chip"));
+  var detail = document.getElementById("trDetail"), svg = document.getElementById("trdChart"),
+      tip = document.getElementById("trdTip"), noData = document.getElementById("trdNoData"),
+      rows = document.getElementById("trdRows");
+  var cat = "", selected = null, days = 30;
+
+  function peso(v) { return "₱" + v.toLocaleString("en-PH", {minimumFractionDigits: 2, maximumFractionDigits: 2}); }
+  function fmtDate(iso, long) {
+    var d = new Date(iso + "T00:00:00");
+    return d.toLocaleDateString("en-PH", long ? {month: "short", day: "numeric", year: "numeric"} : {month: "short", day: "numeric"});
+  }
+
+  // ---- filters ----
+  function applyFilter() {
+    var q = search.value.trim().toLowerCase(), shown = 0;
+    cards.forEach(function (c) {
+      var ok = (!cat || c.dataset.cat === cat) && (!q || c.dataset.name.indexOf(q) >= 0);
+      c.hidden = !ok; if (ok) shown++;
+    });
+    empty.hidden = shown > 0;
+  }
+  search.addEventListener("input", applyFilter);
+  chips.forEach(function (b) {
+    b.addEventListener("click", function () {
+      chips.forEach(function (x) { x.classList.toggle("active", x === b); });
+      cat = b.dataset.cat; applyFilter();
+    });
+  });
+
+  // ---- detail chart ----
+  var W = 600, H = 240, L = 46, R = 70, T = 14, B = 26;
+  function niceTicks(lo, hi) {
+    var span = hi - lo || Math.max(1, hi * 0.1), raw = span / 4, mag = Math.pow(10, Math.floor(Math.log10(raw)));
+    var step = [1, 2, 2.5, 5, 10].map(function (m) { return m * mag; }).find(function (s) { return span / s <= 5; }) || mag * 10;
+    var start = Math.floor(lo / step) * step, out = [];
+    for (var v = start; v <= hi + step * 0.001; v += step) out.push(+v.toFixed(2));
+    if (out[out.length - 1] < hi) out.push(+(out[out.length - 1] + step).toFixed(2));
+    return out;
+  }
+  function el(name, attrs, text) {
+    var n = document.createElementNS("http://www.w3.org/2000/svg", name);
+    for (var k in attrs) n.setAttribute(k, attrs[k]);
+    if (text != null) n.textContent = text;
+    return n;
+  }
+
+  function draw() {
+    var p = data[selected]; if (!p) return;
+    var cutoff = new Date(); cutoff.setHours(0, 0, 0, 0); cutoff.setDate(cutoff.getDate() - (days - 1));
+    var pts = p.series.filter(function (s) { return new Date(s[0] + "T00:00:00") >= cutoff; });
+    svg.innerHTML = ""; tip.hidden = true;
+    rows.innerHTML = pts.slice().reverse().map(function (s) { return "<tr><td>" + fmtDate(s[0], true) + '</td><td class="text-end">' + peso(s[1]) + "</td></tr>"; }).join("")
+      || '<tr><td colspan="2" class="text-muted">No data</td></tr>';
+    noData.hidden = pts.length > 0; svg.style.display = pts.length ? "" : "none";
+    if (!pts.length) return;
+
+    var vals = pts.map(function (s) { return s[1]; });
+    var lo = Math.min.apply(null, vals.concat(p.srp ? [p.srp] : [])), hi = Math.max.apply(null, vals.concat(p.srp ? [p.srp] : []));
+    var ticks = niceTicks(Math.max(0, lo - (hi - lo) * 0.15), hi + (hi - lo) * 0.15 || hi * 1.1);
+    var y0 = ticks[0], y1 = ticks[ticks.length - 1];
+    var t0 = cutoff.getTime(), t1 = Math.max(Date.now(), t0 + 86400000);
+    function x(iso) { return L + (W - L - R) * (new Date(iso + "T00:00:00").getTime() - t0) / (t1 - t0); }
+    function y(v) { return T + (H - T - B) * (1 - (v - y0) / (y1 - y0 || 1)); }
+
+    ticks.forEach(function (t) {
+      svg.appendChild(el("line", {x1: L, x2: W - R, y1: y(t), y2: y(t), "class": "grid"}));
+      svg.appendChild(el("text", {x: L - 8, y: y(t) + 4, "text-anchor": "end", "class": "axis-t"}, "₱" + t.toLocaleString("en-PH")));
+    });
+    [0, 0.5, 1].forEach(function (f) {
+      var d = new Date(t0 + f * (t1 - t0)), iso = d.toISOString().slice(0, 10);
+      svg.appendChild(el("text", {x: x(iso), y: H - 6, "text-anchor": f === 0 ? "start" : f === 1 ? "end" : "middle", "class": "axis-t"}, fmtDate(iso)));
+    });
+    if (p.srp) {
+      svg.appendChild(el("line", {x1: L, x2: W - R, y1: y(p.srp), y2: y(p.srp), "class": "srp"}));
+      svg.appendChild(el("text", {x: W - R + 6, y: y(p.srp) + 4, "class": "srp-t"}, "SRP " + peso(p.srp)));
+    }
+    var line = pts.map(function (s, i) { return (i ? "L" : "M") + x(s[0]).toFixed(1) + "," + y(s[1]).toFixed(1); }).join("");
+    if (pts.length > 1) {
+      svg.appendChild(el("path", {d: line + "L" + x(pts[pts.length - 1][0]).toFixed(1) + "," + y(y0) + "L" + x(pts[0][0]).toFixed(1) + "," + y(y0) + "Z", "class": "area"}));
+      svg.appendChild(el("path", {d: line, "class": "line"}));
+    }
+    var last = pts[pts.length - 1];
+    svg.appendChild(el("circle", {cx: x(last[0]), cy: y(last[1]), r: 4.5, "class": "dot"}));
+    var endLabelY = y(last[1]) + 4;
+    if (p.srp && Math.abs(y(p.srp) - y(last[1])) < 14) endLabelY = y(last[1]) + (y(last[1]) < y(p.srp) ? -6 : 16);
+    svg.appendChild(el("text", {x: x(last[0]) + 9, y: endLabelY, "class": "end-t"}, peso(last[1])));
+
+    // crosshair + tooltip
+    var cross = el("line", {y1: T, y2: H - B, "class": "cross", visibility: "hidden"});
+    var hover = el("circle", {r: 5, "class": "dot", visibility: "hidden"});
+    svg.appendChild(cross); svg.appendChild(hover);
+    var hit = el("rect", {x: L, y: 0, width: W - L - R + 20, height: H, fill: "transparent"});
+    svg.appendChild(hit);
+    function move(evt) {
+      var r = svg.getBoundingClientRect(), cx = ((evt.touches ? evt.touches[0].clientX : evt.clientX) - r.left) * W / r.width;
+      var best = pts.reduce(function (a, s) { return Math.abs(x(s[0]) - cx) < Math.abs(x(a[0]) - cx) ? s : a; }, pts[0]);
+      var bx = x(best[0]), by = y(best[1]);
+      cross.setAttribute("x1", bx); cross.setAttribute("x2", bx); cross.setAttribute("visibility", "visible");
+      hover.setAttribute("cx", bx); hover.setAttribute("cy", by); hover.setAttribute("visibility", "visible");
+      tip.innerHTML = "<b>" + peso(best[1]) + "</b>" + fmtDate(best[0], true) + " · per " + p.unit;
+      tip.hidden = false;
+      var px = bx * r.width / W; tip.style.left = Math.min(Math.max(px, 70), r.width - 70) + "px";
+      tip.style.top = Math.max(0, by * r.height / H - 52) + "px";
+    }
+    function leave() { cross.setAttribute("visibility", "hidden"); hover.setAttribute("visibility", "hidden"); tip.hidden = true; }
+    hit.addEventListener("mousemove", move); hit.addEventListener("touchstart", move, {passive: true});
+    hit.addEventListener("touchmove", move, {passive: true}); hit.addEventListener("mouseleave", leave);
+  }
+
+  function open(id, card) {
+    selected = id;
+    cards.forEach(function (c) { c.classList.toggle("selected", c === card); });
+    var p = data[id];
+    document.getElementById("trdName").textContent = p.name;
+    document.getElementById("trdSub").textContent = p.category + " · average price per " + p.unit + (p.srp ? " · DTI SRP " + peso(p.srp) : "");
+    svg.setAttribute("aria-label", "Average " + p.name + " price over the last " + days + " days");
+    detail.hidden = false; draw();
+    detail.scrollIntoView({behavior: "smooth", block: "nearest"});
+  }
+  cards.forEach(function (c) { c.addEventListener("click", function () { open(c.dataset.id, c); }); });
+  document.getElementById("trdClose").addEventListener("click", function () {
+    detail.hidden = true; cards.forEach(function (c) { c.classList.remove("selected"); });
+  });
+  Array.prototype.forEach.call(document.querySelectorAll(".tr-range button"), function (b) {
+    b.addEventListener("click", function () {
+      days = +b.dataset.days;
+      Array.prototype.forEach.call(document.querySelectorAll(".tr-range button"), function (x) { x.classList.toggle("active", x === b); });
+      svg.setAttribute("aria-label", "Average " + (data[selected] || {}).name + " price over the last " + days + " days");
+      draw();
+    });
+  });
+})();
+</script>
+{% endmacro %}

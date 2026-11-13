@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_vendor_picker.html" import vendor_picker, vendor_picker_assets %}
 {% from "_ui.html" import stat %}
 {% block title %}Dashboard — PresyoWatch{% endblock %}
 {% block content %}
@@ -29,6 +30,10 @@
   .activity-clock { color: #666; }
   .activity-alert { color: #F5A623; }
   .activity-star { color: #F5A623; }
+  .activity-dismiss { border: 0; background: none; color: #9aa395; padding: 2px 6px; border-radius: 50%; line-height: 1; }
+  .activity-dismiss:hover { background: #e6ebe2; color: #D32F2F; }
+  .activity-clear { border: 0; background: none; color: #D32F2F; font-size: .8rem; font-weight: 600; padding: 4px 6px; }
+  .activity-clear:hover { text-decoration: underline; }
 </style>
 
 <!-- Welcome Card -->
@@ -73,11 +78,18 @@
 </div>
 
 <!-- Recent Activity -->
-<h5 class="page-title sm mt-3">Recent Activity</h5>
-<div class="pw-card tint">
+<div class="d-flex justify-content-between align-items-center mt-3" id="recent-activity">
+  <h5 class="page-title sm mb-0 mt-0">Recent Activity</h5>
+  {% if events %}
+  <form method="POST" action="{{ url_for('resident.clear_activity') }}" onsubmit="return confirm('Clear all recent activity? Your reports and reviews are kept.')">
+    <button class="activity-clear" type="submit"><i class="fa-solid fa-trash-can"></i> Clear all</button>
+  </form>
+  {% endif %}
+</div>
+<div class="pw-card tint mt-2">
   {% if events %}
     {% for ev in events %}
-    <div class="d-flex gap-2 align-items-start mb-2">
+    <div class="d-flex gap-2 align-items-start mb-2 activity-row">
       {% if ev[0] == 'star' %}
         <i class="fa-solid fa-star activity-icon activity-star"></i>
       {% elif ev[0] == 'check' %}
@@ -89,16 +101,20 @@
       {% else %}
         <i class="fa-solid fa-triangle-exclamation activity-icon activity-alert"></i>
       {% endif %}
-      <div class="small">
+      <div class="small flex-grow-1">
         {{ ev[1] }}
         <div class="text-muted" style="font-size:0.75rem;">
           {{ ev[2]|localtime('%b %d, %I:%M %p') }}
         </div>
       </div>
+      <form method="POST" action="{{ url_for('resident.dismiss_activity') }}">
+        <input type="hidden" name="key" value="{{ ev[3] }}">
+        <button class="activity-dismiss" type="submit" title="Remove" aria-label="Remove this activity"><i class="fa-solid fa-xmark"></i></button>
+      </form>
     </div>
     {% endfor %}
   {% else %}
-    <div class="text-center text-muted">Nothing yet — submit a price report to get started.</div>
+    <div class="text-center text-muted">No recent activity. New reports, reviews and alerts will show up here.</div>
   {% endif %}
 </div>
 
@@ -108,16 +124,8 @@
   <form method="POST" action="{{ url_for('resident.submit_feedback') }}">
 
     <div class="field">
-      <label class="form-label">Select Vendor</label>
-      <select class="input-pw" name="vendor_id" required>
-        <option value="">— choose a vendor —</option>
-        {% for v in verified_vendors %}
-          <option value="{{ v.user_id }}">{{ v.business_name or v.full_name }}{% if v.city %} ({{ v.city }}){% endif %}</option>
-        {% endfor %}
-      </select>
-      {% if not verified_vendors %}
-        <div class="small text-muted mt-1">No vendors have been registered yet.</div>
-      {% endif %}
+      <label class="form-label" for="feedbackVendor">Select Vendor</label>
+      {{ vendor_picker(vendor_choices, required=true, input_id="feedbackVendor") }}
     </div>
 
     <div class="field">
@@ -140,4 +148,5 @@
   </form>
 </div>
 
+{{ vendor_picker_assets() }}
 {% endblock %}

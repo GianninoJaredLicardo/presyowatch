@@ -77,6 +77,15 @@ def _register(role):
         if name_error:
             flash(name_error, "danger")
             return back
+        if role == "vendor":
+            market = Market.get(market_id or 0)
+            if market is None or not business_name:
+                flash("Please enter your business name and choose your market.", "danger")
+                return back
+            city = market.city
+        elif city not in CITIES:
+            flash("Please choose your city.", "danger")
+            return back
         if not email or not password:
             flash("Please fill out all required fields.", "danger")
             return back
@@ -128,13 +137,18 @@ def _register(role):
         flash("Account created successfully. You may now log in.", "success")
         return redirect(url_for("auth.login"))
 
-    # FIXED: Correctly route to the right template based on the role
+    # Options for the floating-label dropdowns: (value, text)
+    options = {
+        "markets": markets, "role": role,
+        "city_options": [(c, c) for c in CITIES],
+        "markets_options": [(m.market_id, m.market_name, m.city or "") for m in markets],
+    }
     if role == "public":
-        return render_template("register.html", markets=markets, role=role)
+        return render_template("register.html", **options)
     elif role == "lgu":
-        return render_template("register_lgu.html", markets=markets, role=role)
+        return render_template("register_lgu.html", **options)
     else:
-        return render_template("register_form.html", markets=markets, role=role)
+        return render_template("register_form.html", **options)
 
 
 # Alias so your old landing page links (`url_for('auth.register_continue')`) still work

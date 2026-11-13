@@ -273,7 +273,8 @@ def flagged_vendors():
     for l in listings:
         if l.product_id and l.product_id in srps and l.price:
             srp_price = float(srps[l.product_id].srp_price)
-            if float(l.price) > srp_price:
+            # Keep flagged items listed even after the price drops, so the LGU can unflag them.
+            if float(l.price) > srp_price or l.is_price_flagged:
                 vendor = vendors.get(l.vendor_id)
                 product = products.get(l.product_id)
                 deviation = float(l.price) - srp_price
@@ -286,7 +287,7 @@ def flagged_vendors():
                     "vendor_id": l.vendor_id,
                     "listing_id": l.listing_id,
                     "vendor_status": vendor.vendor_status if vendor else None,
-                    "is_price_flagged": bool(vendor and vendor.is_price_flagged),
+                    "is_price_flagged": bool(l.is_price_flagged),
                     "prev_price": float(l.prev_price) if l.prev_price else None,
                     "warned_at": l.lgu_warned_at if _warning_active(l) else None,
                 })
@@ -303,44 +304,41 @@ def _warning_active(listing):
 
 @bp.route("/flagged-vendors/<int:listing_id>/flag", methods=["POST"])
 @lgu_admin_only
-def flag_vendor(listing_id):
-    """Publicly flag a vendor for overpricing, based on one of their over-SRP listings."""
+def flag_listing(listing_id):
+    """Publicly flag one commodity listing for overpricing. The vendor's other items are not affected."""
     listing = Listing.get_or_404(listing_id)
-    vendor = User.get_or_404(listing.vendor_id)
-    if vendor.role != "vendor":
-        abort(404)
+    vendor = User.get(listing.vendor_id)
     note = request.form.get("note", "").strip()[:300]
-    reason = f"Overpricing: {listing.name} at ₱{float(listing.price):,.2f}" + (f". {note}" if note else "")
-    vendor.is_price_flagged = True
-    vendor.price_flag_reason = reason
-    vendor.price_flagged_at = datetime.utcnow()
-    vendor.save()
-    name = vendor.business_name or vendor.full_name
-    notify(vendor.user_id, "Your stall was flagged for overpricing",
-           f"{reason}. Shoppers now see an overpricing notice on your stall. "
-           "Lower your prices to the standard price and ask your LGU to remove the flag.",
+    listing.is_price_flagged = True
+    listing.price_flag_reason = (f"{listing.name} at ₱{float(listing.price):,.2f} is above the standard price"
+                                 + (f". LGU note: {note}" if note else ""))
+    listing.price_flagged_at = datetime.utcnow()
+    listing.save()
+    name = (vendor.business_name or vendor.full_name) if vendor else f"Vendor #{listing.vendor_id}"
+    notify(listing.vendor_id, f"{listing.name} was flagged for overpricing",
+           f"{listing.price_flag_reason}. Shoppers now see an overpricing notice on this item. "
+           "Lower the price, then ask your LGU to remove the flag.",
            link=url_for("vendor.listing_form", listing_id=listing.listing_id), icon="flag", tone="bad")
-    log_action(current_user, "vendor_flagged", f"{name} · {reason}")
-    flash(f"{name} is now flagged for overpricing.", "success")
+    log_action(current_user, "listing_flagged", f"{name} · {listing.price_flag_reason}")
+    flash(f"{listing.name} from {name} is now flagged for overpricing.", "success")
     return redirect(url_for("lgu.flagged_vendors"))
 
 
-@bp.route("/vendors/<int:vendor_id>/unflag", methods=["POST"])
+@bp.route("/flagged-vendors/<int:listing_id>/unflag", methods=["POST"])
 @lgu_admin_only
-def unflag_vendor(vendor_id):
-    vendor = User.get_or_404(vendor_id)
-    if vendor.role != "vendor":
-        abort(404)
-    vendor.is_price_flagged = False
-    vendor.price_flag_reason = None
-    vendor.price_flagged_at = None
-    vendor.save()
-    name = vendor.business_name or vendor.full_name
-    notify(vendor.user_id, "Overpricing flag removed",
-           "Your LGU removed the overpricing flag from your stall.",
-           link="/vendor/dashboard", icon="circle-check", tone="good")
-    log_action(current_user, "vendor_unflagged", name)
-    flash(f"Overpricing flag removed from {name}.", "success")
+def unflag_listing(listing_id):
+    listing = Listing.get_or_404(listing_id)
+    vendor = User.get(listing.vendor_id)
+    listing.is_price_flagged = False
+    listing.price_flag_reason = None
+    listing.price_flagged_at = None
+    listing.save()
+    name = (vendor.business_name or vendor.full_name) if vendor else f"Vendor #{listing.vendor_id}"
+    notify(listing.vendor_id, f"Overpricing flag removed from {listing.name}",
+           f"Your LGU removed the overpricing flag from {listing.name}.",
+           link="/vendor/listings", icon="circle-check", tone="good")
+    log_action(current_user, "listing_unflagged", f"{name} · {listing.name}")
+    flash(f"Overpricing flag removed from {listing.name} ({name}).", "success")
     return redirect(request.referrer or url_for("lgu.flagged_vendors"))
 
 
@@ -513,8 +511,9 @@ def _manage_vendors():
         }.get(status, True)
 
     vendors = sorted((v for v in vendors if keep(v)), key=lambda v: (v.business_name or v.full_name).lower())
+    flagged_items = Counter(l.vendor_id for l in Listing.find(is_price_flagged=True))
     return render_template("lgu_manage_vendors.html", vendors=vendors, markets=markets, status=status,
-                           q=request.args.get("q", ""))
+                           q=request.args.get("q", ""), flagged_items=flagged_items)
 
 
 def _gather_export_rows(date_from, date_to, market_id):

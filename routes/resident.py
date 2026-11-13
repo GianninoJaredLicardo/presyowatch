@@ -1,7 +1,7 @@
 import os
 import uuid
 from collections import defaultdict
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 
 from flask import (
     Blueprint, render_template, request, redirect, url_for, flash, current_app, jsonify
@@ -24,6 +24,25 @@ resident_only = role_required("resident")
 
 def allowed_file(filename):
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
+
+
+def _registered_vendors():
+    """Vendors a resident can pick: every registered vendor account except suspended ones."""
+    markets = Market.index()
+    vendors = [v for v in User.find(role="vendor") if v.vendor_status != "suspended"]
+    vendors.sort(key=lambda v: (v.business_name or v.full_name or "").lower())
+    return vendors, markets
+
+
+def _vendor_choices():
+    vendors, markets = _registered_vendors()
+    choices = []
+    for v in vendors:
+        market = markets.get(v.market_id)
+        place = ", ".join(x for x in (market.market_name if market else None, v.city) if x)
+        choices.append({"id": v.user_id, "name": v.business_name or v.full_name or f"Vendor #{v.user_id}",
+                        "place": place, "market": market.market_name if market else ""})
+    return choices
 
 
 def _parse_date(value):
@@ -54,6 +73,7 @@ def dashboard():
     )
 
     # ---- Build recent activity feed ----
+    # Each event: (icon, text, time, key). The key identifies the item so it can be dismissed.
     events = []
 
     # Price report events
@@ -61,33 +81,39 @@ def dashboard():
         name = r.commodity_name if r.commodity_name else (
             products[r.product_id].product_name if r.product_id in products else "a commodity"
         )
+        key = f"report:{r.report_id}:{r.status}"
         if r.status == "verified" and r.verified_at:
-            events.append(("check", f"Your report on {name} was verified", r.verified_at))
+            events.append(("check", f"Your report on {name} was verified", r.verified_at, key))
         elif r.status == "rejected" and r.verified_at:
-            events.append(("xmark", f"Your report on {name} was rejected", r.verified_at))
+            events.append(("xmark", f"Your report on {name} was rejected", r.verified_at, key))
         elif r.status == "pending" and r.created_at:
-            events.append(("clock", f"You submitted a price report for {name}", r.created_at))
+            events.append(("clock", f"You submitted a price report for {name}", r.created_at, key))
         elif r.status == "flagged" and r.created_at:
-            events.append(("alert", f"Your report on {name} was flagged for review", r.created_at))
+            events.append(("alert", f"Your report on {name} was flagged for review", r.created_at, key))
 
     # Feedback events
+    vendor_cache = {}
     for rev in my_reviews:
-        vendor = User.get(rev.vendor_id)
-        vendor_name = vendor.business_name or vendor.full_name if vendor else "a vendor"
+        if rev.vendor_id not in vendor_cache:
+            vendor_cache[rev.vendor_id] = User.get(rev.vendor_id)
+        vendor = vendor_cache[rev.vendor_id]
+        vendor_name = (vendor.business_name or vendor.full_name) if vendor else "a vendor"
         events.append((
             "star",
             f"You rated {vendor_name} — {rev.rating} star{'s' if rev.rating != 1 else ''}",
             rev.created_at,
+            f"review:{rev.review_id}",
         ))
 
     # Alert rules triggered
     for rule in rules:
-        if rule.is_triggered and rule.product_id in products:
+        if rule.is_triggered and rule.triggered_at and rule.product_id in products:
             word = "below" if rule.direction == "below" else "above"
             events.append((
                 "alert",
                 f"{products[rule.product_id].product_name} {word} ₱{rule.threshold:g}/kg — now ₱{rule.triggered_price:.2f}",
                 rule.triggered_at,
+                f"rule:{rule.rule_id}:{rule.triggered_at:%Y%m%d%H%M%S}",
             ))
 
     # New verified vendors in the resident's city
@@ -97,15 +123,15 @@ def dashboard():
                 "check",
                 f"New verified vendor near you: {v.business_name or v.full_name}",
                 v.vendor_verified_at,
+                f"vendor:{v.user_id}",
             ))
 
+    # Drop what the resident cleared or dismissed
+    cleared_at = current_user.activity_cleared_at
+    hidden = set(current_user.hidden_activity or [])
+    events = [e for e in events if e[3] not in hidden and not (cleared_at and e[2] <= cleared_at)]
     events.sort(key=lambda e: e[2], reverse=True)
 
-    # Show ALL vendors so residents can rate any of them
-    verified_vendors = sorted(
-        User.find(role="vendor"),
-        key=lambda v: (v.business_name or v.full_name or "").lower(),
-    )
 
     return render_template(
         "resident_dashboard.html",
@@ -114,8 +140,35 @@ def dashboard():
         changes=changes,
         board=market_price_board(current_user.city),
         events=events[:5],
-        verified_vendors=verified_vendors,
+        vendor_choices=_vendor_choices(),
     )
+
+
+MAX_HIDDEN_ACTIVITY = 100
+
+
+@bp.route("/activity/dismiss", methods=["POST"])
+@resident_only
+def dismiss_activity():
+    """Hide one item from Recent Activity (the X button)."""
+    key = request.form.get("key", "").strip()[:80]
+    if key:
+        hidden = [k for k in (current_user.hidden_activity or []) if k != key]
+        hidden.append(key)
+        current_user.hidden_activity = hidden[-MAX_HIDDEN_ACTIVITY:]  # keep storage small
+        current_user.save()
+    return redirect(url_for("resident.dashboard") + "#recent-activity")
+
+
+@bp.route("/activity/clear", methods=["POST"])
+@resident_only
+def clear_activity():
+    """Hide everything currently in Recent Activity. Reports, reviews and alerts are not deleted."""
+    current_user.activity_cleared_at = datetime.utcnow()
+    current_user.hidden_activity = []  # everything is covered by the clear time, so free the stored keys
+    current_user.save()
+    flash("Recent activity cleared.", "success")
+    return redirect(url_for("resident.dashboard") + "#recent-activity")
 
 
 @bp.route("/report/new", methods=["GET", "POST"])
@@ -127,7 +180,14 @@ def report_price():
         commodity_name = request.form.get("commodity_name", "").strip()
         market_name = request.form.get("market_name", "").strip()
         price = request.form.get("price", type=float)
-        vendor_name = request.form.get("vendor_name", "").strip() or None
+        vendor_id = request.form.get("vendor_id", type=int)
+        vendor_name = None
+        if vendor_id:
+            vendor = User.get(vendor_id)
+            if vendor is None or vendor.role != "vendor" or vendor.vendor_status == "suspended":
+                flash("Please choose a registered vendor from the list.", "danger")
+                return redirect(url_for("resident.report_price"))
+            vendor_name = vendor.business_name or vendor.full_name
         try:
             report_date = _parse_date(request.form.get("report_date") or str(date.today()))
         except ValueError:
@@ -196,7 +256,8 @@ def report_price():
         r.product = product_map.get(r.product_id)
         r.market = market_map.get(r.market_id)
     return render_template(
-        "report_price.html", products=products, today=date.today(), recent=recent
+        "report_price.html", products=products, today=date.today(), recent=recent,
+        vendor_choices=_vendor_choices(),
     )
 
 
@@ -320,8 +381,8 @@ def submit_feedback():
         return redirect(url_for("resident.dashboard"))
 
     vendor = User.get(vendor_id)
-    if not vendor or vendor.role != "vendor":
-        flash("Vendor not found.", "danger")
+    if not vendor or vendor.role != "vendor" or vendor.vendor_status == "suspended":
+        flash("Please choose a registered vendor from the list.", "danger")
         return redirect(url_for("resident.dashboard"))
 
     Review(

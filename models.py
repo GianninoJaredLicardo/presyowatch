@@ -155,7 +155,9 @@ class User(UserMixin, Model):
         "market_id": None,
         "vendor_status": "active",       # pending | active | suspended (vendors only)
         "vendor_verified_at": None,
-        "is_price_flagged": False,       # flagged by the LGU for overpricing (shown to shoppers)
+        # Legacy whole-vendor overpricing flag. Unused now (flags are per listing) but kept so
+        # existing user documents that still have these fields keep loading.
+        "is_price_flagged": False,
         "price_flag_reason": None,
         "price_flagged_at": None,
         "org_name": None,
@@ -163,6 +165,10 @@ class User(UserMixin, Model):
         "contact_person": None,
         "profile_pic": None,             # NEW — path to profile picture
         "application_status": None,      # pending | approved | rejected (LGU / DTI-DA sign-ups only)
+        # Resident "Recent Activity" feed: items before activity_cleared_at are hidden ("Clear all"),
+        # plus individually dismissed item keys (capped; emptied on every "Clear all").
+        "activity_cleared_at": None,
+        "hidden_activity": list,
     }
 
     # Flask-Login requires get_id(); primary key column name differs from "id"
@@ -293,6 +299,9 @@ class Listing(Model):
         "product_id": None,             # optional link to a tracked commodity
         "lgu_warning": None,            # overpricing notice sent by the LGU from Flagged Vendors
         "lgu_warned_at": None,          # a later updated_at (vendor changed the price) clears it
+        "is_price_flagged": False,      # this commodity is flagged by the LGU for overpricing (shown to shoppers)
+        "price_flag_reason": None,
+        "price_flagged_at": None,
         "updated_at": datetime.utcnow,
         "created_at": datetime.utcnow,
     }

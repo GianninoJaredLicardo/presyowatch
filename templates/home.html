@@ -1,198 +1,401 @@
 {% extends "base.html" %}
 {% set shell = 'landing' %}
 {% set hide_nav = true %}
+{% from "_trends.html" import trends_section, trends_assets %}
 {% block title %}PresyoWatch — Gobyernong Matapat, Presyong Tama{% endblock %}
 {% block content %}
+{% set priced = (trends['items'] if trends else [])|selectattr('current')|list %}
 
 <style>
-  /* ===== HOVER CARD ANIMATIONS ===== */
-  .market-card {
-    position: relative;
-    overflow: hidden;
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
-  }
-  .market-card:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 12px 24px rgba(13, 92, 54, 0.25);
-  }
-  .market-card img {
-    transition: transform 0.6s ease;
-  }
-  .market-card:hover img {
-    transform: scale(1.08);
-  }
+  /* ===== Landing page (scoped to .lp) ===== */
+  .app-shell.landing { max-width: 1120px; }
+  .lp { --g1: #0d4a2a; --g2: #13703d; --g3: #1f7a45; overflow-x: clip; }
+  .lp section { position: relative; }
 
-  /* Info preview overlay (hidden by default) */
-  .market-preview {
-    position: absolute;
-    inset: 0;
-    background: rgba(13, 92, 54, 0.92);
-    color: #fff;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    padding: 20px;
-    opacity: 0;
-    transition: opacity 0.3s ease;
-    text-align: center;
-    border-radius: inherit;
-  }
-  .market-card:hover .market-preview {
-    opacity: 1;
-  }
-  .market-preview h4 {
-    font-size: 1rem;
-    font-weight: 700;
-    margin-bottom: 6px;
-    color: #F5A623;
-  }
-  .market-preview p {
-    font-size: 0.78rem;
-    margin: 0;
-    opacity: 0.95;
-    line-height: 1.4;
-  }
-  .market-preview small {
-    font-size: 0.7rem;
-    margin-top: 8px;
-    opacity: 0.75;
-    font-style: italic;
+  /* top bar */
+  .lp-top { position: sticky; top: 0; z-index: 50; display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 20px; background: rgba(243, 245, 240, .78); backdrop-filter: saturate(160%) blur(12px); -webkit-backdrop-filter: saturate(160%) blur(12px);
+    border-bottom: 1px solid rgba(0,0,0,.04); }
+  .lp-brand { display: flex; align-items: center; gap: 9px; font-weight: 800; font-size: 1.05rem; color: var(--g1); text-decoration: none; letter-spacing: -.01em; }
+  .lp-brand img { width: 34px; height: 34px; }
+  .lp-nav { display: none; gap: 22px; }
+  .lp-nav a { color: #3c4a38; text-decoration: none; font-weight: 600; font-size: .88rem; }
+  .lp-nav a:hover { color: var(--g3); }
+  @media (min-width: 860px) { .lp-nav { display: flex; } }
+  @media (max-width: 400px) { .lp-top { padding: 10px 12px; } .lp-brand { font-size: .95rem; } .lp-brand img { width: 30px; height: 30px; } }
+
+  /* hero */
+  .lp-hero { margin: 10px 12px 0; border-radius: 28px; overflow: hidden; color: #fff; isolation: isolate;
+    background: radial-gradient(1200px 500px at 85% -10%, #2a9a5a 0%, transparent 60%),
+                linear-gradient(160deg, var(--g1) 0%, var(--g2) 55%, #0b3d23 100%); }
+  .lp-hero::before { content: ""; position: absolute; inset: 0; z-index: -1; opacity: .5;
+    background-image: linear-gradient(rgba(255,255,255,.06) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.06) 1px, transparent 1px);
+    background-size: 36px 36px; mask-image: radial-gradient(ellipse at 30% 20%, #000 20%, transparent 75%); -webkit-mask-image: radial-gradient(ellipse at 30% 20%, #000 20%, transparent 75%); }
+  .lp-blob { position: absolute; border-radius: 50%; filter: blur(50px); z-index: -1; opacity: .55; animation: lp-float 14s ease-in-out infinite; }
+  .lp-blob.a { width: 280px; height: 280px; background: #f2b42c; top: -90px; left: -80px; opacity: .28; }
+  .lp-blob.b { width: 320px; height: 320px; background: #3fbf74; bottom: -140px; right: -60px; animation-delay: -6s; }
+  @keyframes lp-float { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(24px, 18px) scale(1.08); } }
+  .lp-hero-in { display: grid; grid-template-columns: minmax(0, 1fr); gap: 30px; padding: 40px 24px 34px; align-items: center; }
+  .lp-hero-in > * { min-width: 0; }
+  @media (min-width: 860px) { .lp-hero-in { grid-template-columns: minmax(0, 1.1fr) minmax(0, .9fr); padding: 64px 56px; gap: 40px; } }
+  .lp-badge { display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px; border-radius: 999px; font-size: .75rem; font-weight: 700;
+    background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.2); color: #e9f7ee; }
+  .live { width: 8px; height: 8px; border-radius: 50%; background: #5ee08f; display: inline-block; animation: lp-pulse 1.8s infinite; }
+  @keyframes lp-pulse { 0% { box-shadow: 0 0 0 0 rgba(94,224,143,.7); } 70% { box-shadow: 0 0 0 10px rgba(94,224,143,0); } 100% { box-shadow: 0 0 0 0 rgba(94,224,143,0); } }
+  .lp-h1 { font-size: clamp(2.2rem, 6.5vw, 3.6rem); font-weight: 900; line-height: 1.06; letter-spacing: -.035em; margin: 18px 0 14px; color: #fff; }
+  .lp-h1 .hl { background: linear-gradient(90deg, #ffd56a, #f2b42c 60%, #ffcf4d); -webkit-background-clip: text; background-clip: text; color: transparent; position: relative; white-space: nowrap; }
+  .lp-h1 .hl::after { content: ""; position: absolute; left: 2%; right: 2%; bottom: -.06em; height: .12em; border-radius: 99px; background: rgba(242,180,44,.45); transform-origin: left; animation: lp-underline 1s .5s both ease-out; }
+  @keyframes lp-underline { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+  .lp-sub { font-size: 1.05rem; line-height: 1.55; color: rgba(255,255,255,.82); max-width: 520px; margin-bottom: 24px; }
+  .lp-ctas { display: flex; gap: 10px; flex-wrap: wrap; }
+  .lp .btn-yellow { padding: 14px 24px; font-size: 1rem; border-radius: 16px; }
+  .lp-btn-glass { display: inline-flex; align-items: center; gap: 8px; padding: 14px 22px; border-radius: 16px; font-weight: 700; font-size: 1rem;
+    color: #fff; text-decoration: none; background: rgba(255,255,255,.1); border: 1.5px solid rgba(255,255,255,.28); transition: all .18s; }
+  .lp-btn-glass:hover { background: rgba(255,255,255,.18); color: #fff; transform: translateY(-1px); }
+  .lp-trust { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 22px; font-size: .85rem; color: rgba(255,255,255,.85); }
+  .lp-trust span { display: inline-flex; align-items: center; gap: 7px; }
+  .lp-trust i { color: #5ee08f; }
+
+  /* hero visual */
+  .lp-visual { position: relative; max-width: 420px; width: 100%; margin: 0 auto; padding: 18px 10px 34px; }
+  .lp-photo { position: relative; border-radius: 24px; overflow: hidden; transform: rotate(2deg); box-shadow: 0 30px 60px rgba(0,0,0,.35); border: 4px solid rgba(255,255,255,.9); transition: transform .4s ease; }
+  .lp-visual:hover .lp-photo { transform: rotate(0deg) scale(1.02); }
+  .lp-photo img { width: 100%; height: 300px; object-fit: cover; display: block; }
+  .lp-photo .cap { position: absolute; left: 0; right: 0; bottom: 0; padding: 40px 16px 14px; text-align: right; background: linear-gradient(transparent, rgba(0,0,0,.75)); }
+  .lp-photo .cap small { display: block; font-size: .72rem; opacity: .85; }
+  .lp-photo .cap b { font-size: 1.05rem; }
+  .lp-photo .tag { position: absolute; top: 12px; left: 12px; background: #fff; color: var(--g1); font-weight: 700; font-size: .72rem; padding: 6px 11px; border-radius: 999px; display: inline-flex; align-items: center; gap: 6px; }
+  .lp-photo .tag .live { width: 7px; height: 7px; background: #e0453f; }
+  .lp-chip { position: absolute; background: #fff; color: #1d2a1b; border-radius: 16px; padding: 10px 14px; box-shadow: 0 14px 30px rgba(0,0,0,.22);
+    display: flex; align-items: center; gap: 10px; font-size: .78rem; animation: lp-bob 5s ease-in-out infinite; z-index: 2; }
+  .lp-chip .ic { width: 34px; height: 34px; border-radius: 11px; display: grid; place-items: center; font-size: .9rem; flex: 0 0 34px; }
+  .lp-chip b { display: block; font-size: .95rem; }
+  .lp-chip small { color: #6b7466; }
+  .lp-chip.one { top: 0; right: -6px; }
+  .lp-chip.two { bottom: -14px; left: -10px; animation-delay: -2.5s; }
+  .lp-chip.three { top: 44%; right: -18px; animation-delay: -1.2s; }
+  @keyframes lp-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-9px); } }
+  @media (max-width: 480px) { .lp-chip.three { display: none; } .lp-chip.one { right: 0; } .lp-chip.two { left: 0; } }
+
+  /* ticker */
+  .lp-ticker { margin: 18px 12px 0; border-radius: 18px; background: #fff; border: 1px solid var(--line); box-shadow: var(--shadow-sm); overflow: hidden; display: flex; align-items: center; }
+  .lp-ticker .lbl { flex: 0 0 auto; background: var(--g1); color: #fff; font-weight: 800; font-size: .72rem; letter-spacing: .06em; padding: 14px; display: flex; align-items: center; gap: 7px; }
+  .lp-ticker .lbl .live { width: 7px; height: 7px; }
+  .lp-ticker .viewport { overflow: hidden; flex: 1; min-width: 0; mask-image: linear-gradient(90deg, transparent, #000 5%, #000 95%, transparent); -webkit-mask-image: linear-gradient(90deg, transparent, #000 5%, #000 95%, transparent); }
+  .lp-ticker .track { display: flex; width: max-content; animation: lp-marquee 38s linear infinite; }
+  .lp-ticker:hover .track { animation-play-state: paused; }
+  .lp-tick { display: inline-flex; align-items: center; gap: 8px; padding: 0 22px; font-size: .86rem; white-space: nowrap; border-right: 1px solid var(--line); }
+  .lp-tick b { color: var(--title); }
+  .lp-tick .p { font-weight: 800; font-variant-numeric: tabular-nums; }
+  @keyframes lp-marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+
+  /* section headings */
+  .lp-head { text-align: center; max-width: 620px; margin: 64px auto 26px; padding: 0 20px; }
+  .lp-eyebrow { display: inline-block; font-size: .72rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--g3);
+    background: var(--primary-soft); padding: 5px 12px; border-radius: 999px; margin-bottom: 10px; }
+  .lp-head h2 { font-size: clamp(1.6rem, 4vw, 2.2rem); font-weight: 900; letter-spacing: -.03em; color: var(--title); margin: 0 0 8px; }
+  .lp-head p { color: var(--muted); margin: 0; }
+  .lp .trends .section-h, .lp .trends .section-h + div { display: none; } /* replaced by the heading above */
+
+  /* markets */
+  .lp-markets { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 0 20px; }
+  .lp-market { position: relative; border-radius: 20px; overflow: hidden; min-height: 170px; box-shadow: var(--shadow-sm); }
+  @media (min-width: 760px) { .lp-market { min-height: 240px; } }
+  .lp-market img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transition: transform .6s ease; }
+  .lp-market:hover img { transform: scale(1.08); }
+  .lp-market .ov { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0,0,0,.05), rgba(13,74,42,.88)); }
+  .lp-market .tx { position: absolute; left: 14px; right: 14px; bottom: 12px; color: #fff; }
+  .lp-market .tx b { display: block; font-size: 1rem; }
+  .lp-market .tx span { font-size: .78rem; opacity: .88; }
+
+  /* features */
+  .lp-features { display: grid; grid-template-columns: 1fr; gap: 12px; padding: 0 20px; }
+  @media (min-width: 640px) { .lp-features { grid-template-columns: 1fr 1fr; } }
+  .lp-feat { background: #fff; border: 1px solid var(--line); border-radius: 20px; padding: 20px; box-shadow: var(--shadow-sm); transition: transform .2s, box-shadow .2s, border-color .2s; }
+  .lp-feat:hover { transform: translateY(-3px); box-shadow: 0 16px 34px rgba(16,24,16,.1); border-color: #cfe6d7; }
+  .lp-feat .ic { width: 48px; height: 48px; border-radius: 15px; display: grid; place-items: center; font-size: 1.2rem; margin-bottom: 12px; }
+  .lp-feat b { display: block; font-size: 1.05rem; color: var(--title); margin-bottom: 4px; }
+  .lp-feat span { font-size: .88rem; color: var(--muted); line-height: 1.5; }
+  .ic-green { background: #e3f4e8; color: #1f7a45; } .ic-red { background: #fdecea; color: #c0392b; }
+  .ic-gold { background: #fff4d6; color: #a46b00; } .ic-blue { background: #e5eefb; color: #1d4e7c; }
+
+  /* steps */
+  .lp-steps { display: grid; gap: 22px; padding: 14px 20px 0; counter-reset: step; }
+  @media (min-width: 760px) { .lp-steps { grid-template-columns: repeat(3, 1fr); gap: 14px; } }
+  .lp-step { position: relative; background: #fff; border: 1px solid var(--line); border-radius: 20px; padding: 26px 20px 20px; box-shadow: var(--shadow-sm); }
+  .lp-step::before { counter-increment: step; content: counter(step); position: absolute; top: -14px; left: 20px; width: 34px; height: 34px; border-radius: 12px;
+    display: grid; place-items: center; font-weight: 900; color: #fff; background: linear-gradient(135deg, #24894e, #0d4a2a); box-shadow: 0 8px 16px rgba(31,122,69,.3); }
+  .lp-step b { display: block; color: var(--title); margin: 4px 0 4px; }
+  .lp-step span { font-size: .88rem; color: var(--muted); line-height: 1.5; }
+
+  /* scan / QR */
+  .lp-scan { margin: 0 20px; border-radius: 26px; padding: 26px; display: grid; gap: 22px; align-items: center; color: #fff;
+    background: linear-gradient(135deg, #13703d 0%, #0d4a2a 100%); position: relative; overflow: hidden; }
+  .lp-scan::after { content: ""; position: absolute; width: 260px; height: 260px; border-radius: 50%; background: rgba(242,180,44,.18); right: -80px; top: -80px; }
+  @media (min-width: 700px) { .lp-scan { grid-template-columns: 220px 1fr; padding: 34px; } }
+  .lp-qr { background: #fff; border-radius: 20px; padding: 12px; max-width: 220px; width: 100%; margin: 0 auto; box-shadow: 0 18px 36px rgba(0,0,0,.25); position: relative; z-index: 1; }
+  .lp-qr img { width: 100%; display: block; border-radius: 10px; }
+  .lp-scan h3 { color: #fff; font-weight: 900; font-size: 1.6rem; letter-spacing: -.02em; }
+  .lp-scan p { color: rgba(255,255,255,.82); }
+  .lp-scan .z { position: relative; z-index: 1; }
+
+  /* testimonials */
+  .lp-quotes { display: grid; grid-auto-flow: column; grid-auto-columns: 86%; gap: 14px; overflow-x: auto; scroll-snap-type: x mandatory; padding: 4px 20px 14px; scrollbar-width: none; }
+  .lp-quotes::-webkit-scrollbar { display: none; }
+  @media (min-width: 760px) { .lp-quotes { grid-auto-flow: row; grid-template-columns: repeat(3, 1fr); overflow: visible; } }
+  .lp-quote { scroll-snap-align: center; background: #fff; border: 1px solid var(--line); border-radius: 20px; padding: 20px; box-shadow: var(--shadow-sm); display: flex; flex-direction: column; gap: 10px; }
+  .lp-quote .qmark { font-size: 2.6rem; line-height: .5; color: #cfe6d7; font-family: Georgia, serif; }
+  .lp-quote p { font-size: .92rem; color: #2c3a29; margin: 0; flex: 1; }
+  .lp-who { display: flex; align-items: center; gap: 10px; }
+  .lp-who .av { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; color: #fff; font-weight: 800; font-size: .85rem; }
+  .lp-who b { display: block; font-size: .9rem; color: var(--title); }
+  .lp-who small { color: var(--muted); font-size: .76rem; }
+  .lp-swipe { text-align: center; font-size: .75rem; color: var(--muted); }
+  @media (min-width: 760px) { .lp-swipe { display: none; } }
+
+  /* final CTA */
+  .lp-cta { margin: 64px 12px 0; border-radius: 28px; padding: 44px 24px; text-align: center; color: #fff; overflow: hidden;
+    background: radial-gradient(600px 300px at 50% 120%, rgba(242,180,44,.35), transparent 70%), linear-gradient(160deg, #0d4a2a, #13703d); }
+  .lp-cta h2 { color: #fff; font-weight: 900; font-size: clamp(1.6rem, 4.5vw, 2.4rem); letter-spacing: -.03em; }
+  .lp-cta p { color: rgba(255,255,255,.82); max-width: 520px; margin: 0 auto 22px; }
+  .lp-cta .row-btns { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+
+  /* footer */
+  .lp-foot { margin-top: 40px; background: #0c1f15; color: #b9c9b3; padding: 34px 24px 26px; border-radius: 28px 28px 0 0; font-size: .86rem; }
+  .lp-foot .cols { display: grid; gap: 20px; grid-template-columns: 1fr 1fr; }
+  .lp-foot .fbrand { grid-column: 1 / -1; }
+  @media (min-width: 760px) { .lp-foot .cols { grid-template-columns: 2fr 1fr 1fr; } .lp-foot .fbrand { grid-column: auto; } }
+  .lp-foot .fbrand b { color: #fff; font-size: 1.1rem; display: flex; align-items: center; gap: 8px; }
+  .lp-foot .fbrand img { width: 30px; height: 30px; }
+  .lp-foot h6 { color: #fff; font-size: .78rem; letter-spacing: .1em; text-transform: uppercase; margin-bottom: 10px; }
+  .lp-foot a { display: block; color: #9fb79a; text-decoration: none; margin: 6px 0; }
+  .lp-foot a:hover { color: #fff; }
+  .lp-foot .copy { border-top: 1px solid rgba(255,255,255,.08); margin-top: 24px; padding-top: 16px; font-size: .78rem; color: #7f9479; }
+
+  .lp .tr-filters { top: 58px; z-index: 6; }  /* sit just under the sticky top bar */
+  /* trends grid: 3 columns on wide screens */
+  @media (min-width: 900px) { .lp .tr-grid { grid-template-columns: repeat(3, 1fr); } .lp .tr-stats { grid-template-columns: repeat(4, 1fr); } }
+
+  /* reveal on scroll (only once JS has run, so nothing stays hidden without JS) */
+  .lp-js .rv { opacity: 0; transform: translateY(18px); transition: opacity .6s ease, transform .6s ease; }
+  .lp-js .rv.in { opacity: 1; transform: none; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .lp *, .lp *::before, .lp *::after { animation: none !important; transition: none !important; }
+    .lp-ticker .viewport { overflow-x: auto; }
   }
 </style>
 
-<div class="top-bar">
-  <a class="brand-mini" href="{{ url_for('public.home') }}">
-    <img src="{{ url_for('static', filename='img/logo.svg') }}" alt=""> PresyoWatch
-  </a>
-  <div class="d-flex gap-2">
-    {% if nav_current_user.is_authenticated %}
-      <a class="btn-pw btn-sm-pw" href="{{ url_for('auth.login') }}">Open App</a>
-    {% else %}
-      <a class="btn-pw-outline btn-sm-pw" href="{{ url_for('auth.login') }}">LOGIN</a>
-      <a class="btn-pw btn-sm-pw" href="{{ url_for('auth.register') }}">REGISTER</a>
-    {% endif %}
-  </div>
-</div>
+<div class="lp">
 
-<section class="hero">
-  <span class="pill-note">Powered by DTI and DA Partnership</span>
-  <h1 class="mt-3">Gobyernong Matapat, <br>Presyong Tama</h1>
-  <p class="text-secondary">Real-Time market price monitoring and price gouging alert system for Filipino consumers and LGUs.</p>
-  <a class="btn-pw mb-4" style="padding:13px 26px;font-size:1rem" href="{{ url_for('auth.register') }}">Get Started — It's Free <i class="fa-solid fa-arrow-right"></i></a>
-
-  <!-- LIVE MARKET VIEW — Carbon Market Visual -->
-  <div class="pw-card market-card mx-auto mb-3" style="max-width:340px; padding:0; border-radius:16px;">
-    <img src="{{ url_for('static', filename='img/carbon-market.jpg') }}"
-         alt="Carbon Public Market"
-         style="width:100%; height:200px; object-fit:cover; display:block;">
-    <span style="position:absolute; top:12px; left:12px; background:#fff; color:#0D5C36; font-weight:600; padding:6px 12px; border-radius:20px; font-size:0.75rem; z-index:2;">
-      ● LIVE MARKET VIEW
-    </span>
-    <div style="position:absolute; bottom:0; left:0; right:0; background:linear-gradient(transparent, rgba(0,0,0,0.75)); padding:16px; color:#fff; text-align:left; z-index:2;">
-      <div style="font-size:0.75rem; opacity:0.9;">Carbon Public Market</div>
-      <div style="font-size:1.1rem; font-weight:700; line-height:1.2;">Today's fresh produce prices</div>
+  <!-- ===== Top bar ===== -->
+  <header class="lp-top">
+    <a class="lp-brand" href="{{ url_for('public.home') }}">
+      <img src="{{ url_for('static', filename='img/logo.svg') }}" alt=""> PresyoWatch
+    </a>
+    <nav class="lp-nav" aria-label="Page sections">
+      <a href="#trends">Price Trends</a><a href="#features">Features</a><a href="#how">How it works</a><a href="{{ url_for('public.price_search') }}">Search Prices</a>
+    </nav>
+    <div class="d-flex gap-2">
+      {% if nav_current_user.is_authenticated %}
+        <a class="btn-pw btn-sm-pw" href="{{ url_for('auth.login') }}">Open App</a>
+      {% else %}
+        <a class="btn-pw-outline btn-sm-pw" href="{{ url_for('auth.login') }}">Login</a>
+        <a class="btn-pw btn-sm-pw" href="{{ url_for('auth.register') }}">Register</a>
+      {% endif %}
     </div>
-    <div style="position:absolute; bottom:16px; right:16px; background:#fff; border-radius:12px; padding:8px 12px; text-align:right; box-shadow:0 2px 8px rgba(0,0,0,0.15); z-index:2;">
-      <div style="font-size:0.7rem; color:#666;">Tomatoes</div>
-      <div style="font-size:1rem; font-weight:700; color:#0D5C36;">₱85/kg</div>
-    </div>
+  </header>
 
-    <!-- Hover preview overlay -->
-    <div class="market-preview">
-      <h4>Carbon Public Market</h4>
-      <p>Real-time prices from Cebu's oldest and busiest public market.</p>
-      <p style="margin-top:8px;">Today's sample: 🍅 Tomatoes at ₱85/kg</p>
-      <small>Hover or tap for more info</small>
-    </div>
-  </div>
-
-  <!-- TWO SMALL MARKET CARDS -->
-  <div class="d-flex gap-2 justify-content-center mb-3" style="max-width:340px; margin:0 auto;">
-
-    <!-- Left small card -->
-    <div class="pw-card market-card" style="flex:1; padding:0; border-radius:14px;">
-      <img src="{{ url_for('static', filename='img/market-1.jpg') }}"
-           alt="Market scene"
-           style="width:100%; height:120px; object-fit:cover; display:block;">
-      <div style="position:absolute; bottom:8px; left:8px; right:8px; color:#fff; font-size:0.75rem; font-weight:600; text-shadow:0 1px 4px rgba(0,0,0,0.8); z-index:2;">
-        1,520+ markets monitored
+  <!-- ===== Hero ===== -->
+  <section class="lp-hero">
+    <span class="lp-blob a"></span><span class="lp-blob b"></span>
+    <div class="lp-hero-in">
+      <div>
+        <span class="lp-badge"><span class="live"></span> Powered by DTI and DA Partnership</span>
+        <h1 class="lp-h1">Gobyernong Matapat, <span class="hl">Presyong Tama</span></h1>
+        <p class="lp-sub">Real-time market price monitoring and price gouging alerts for Filipino consumers and LGUs. Know the fair price before you buy.</p>
+        <div class="lp-ctas">
+          <a class="btn-yellow" href="{{ url_for('auth.register') }}">Get Started — It's Free <i class="fa-solid fa-arrow-right"></i></a>
+          <a class="lp-btn-glass" href="{{ url_for('public.scan') }}"><i class="fa-solid fa-qrcode"></i> Scan a Market QR</a>
+        </div>
+        <div class="lp-trust">
+          <span><i class="fa-solid fa-circle-check"></i> 100% free for consumers</span>
+          <span><i class="fa-solid fa-circle-check"></i> No app download</span>
+          <span><i class="fa-solid fa-circle-check"></i> LGU-verified prices</span>
+        </div>
       </div>
 
-      <!-- Hover preview -->
-      <div class="market-preview">
-        <h4>1,520+ Markets</h4>
-        <p>We track prices across public markets nationwide, from Carbon to local barangay palengkes.</p>
+      <div class="lp-visual">
+        <div class="lp-photo">
+          <img src="{{ url_for('static', filename='img/carbon-market.jpg') }}" alt="Carbon Public Market">
+          <span class="tag"><span class="live"></span> LIVE MARKET VIEW</span>
+          <div class="cap"><small>Carbon Public Market</small><b>Today's fresh produce prices</b></div>
+        </div>
+        {% set c1 = priced[0] if priced else none %}
+        <div class="lp-chip one">
+          <span class="ic ic-green"><i class="fa-solid fa-basket-shopping"></i></span>
+          <div>{% if c1 %}<small>{{ c1.name }}</small><b>₱{{ '{:,.2f}'.format(c1.current) }}/{{ c1.unit }}</b>{% else %}<small>Tomatoes</small><b>₱85/kg</b>{% endif %}</div>
+        </div>
+        <div class="lp-chip two">
+          <span class="ic ic-red"><i class="fa-solid fa-triangle-exclamation"></i></span>
+          <div><small>Spike alert</small><b>Over 20% flagged</b></div>
+        </div>
+        <div class="lp-chip three">
+          <span class="ic ic-gold"><i class="fa-solid fa-certificate"></i></span>
+          <div><small>Vendor</small><b>LGU Verified</b></div>
+        </div>
       </div>
     </div>
+  </section>
 
-    <!-- Right small card -->
-    <div class="pw-card market-card" style="flex:1; padding:0; border-radius:14px;">
-      <img src="{{ url_for('static', filename='img/market-2.jpg') }}"
-           alt="Compare prices"
-           style="width:100%; height:120px; object-fit:cover; display:block;">
-      <div style="position:absolute; bottom:8px; left:8px; right:8px; color:#fff; font-size:0.75rem; font-weight:600; text-shadow:0 1px 4px rgba(0,0,0,0.8); z-index:2;">
-        Compare before you buy
-      </div>
-
-      <!-- Hover preview -->
-      <div class="market-preview">
-        <h4>Compare Prices</h4>
-        <p>Check prices across multiple vendors and markets — save money before you shop.</p>
+  <!-- ===== Live ticker (real verified prices) ===== -->
+  {% if priced %}
+  <div class="lp-ticker" role="region" aria-label="Latest verified prices">
+    <div class="lbl"><span class="live"></span> LIVE PRICES</div>
+    <div class="viewport">
+      <div class="track">
+        {# The list is repeated so the scroll loops seamlessly; copies after the first are hidden from screen readers. #}
+        {% for copy in range(2 if priced|length > 3 else 8) %}{% for i in priced %}
+        <span class="lp-tick" {% if copy %}aria-hidden="true"{% endif %}>
+          <b>{{ i.name }}</b><span class="p">₱{{ '{:,.2f}'.format(i.current) }}</span><small class="text-muted">/{{ i.unit }}</small>
+          {% if i.change is not none and i.change > 0 %}<span class="tr-delta up"><i class="fa-solid fa-arrow-up"></i> {{ i.change }}%</span>
+          {% elif i.change is not none and i.change < 0 %}<span class="tr-delta down"><i class="fa-solid fa-arrow-down"></i> {{ i.change|abs }}%</span>{% endif %}
+        </span>
+        {% endfor %}{% endfor %}
       </div>
     </div>
   </div>
+  {% endif %}
 
-  <!-- QR CODE CARD -->
-  <div class="pw-card mx-auto mb-3" style="max-width:280px">
-    <img src="{{ url_for('public.site_qr') }}" class="img-fluid" alt="PresyoWatch QR code">
+  <!-- ===== Live price trends ===== -->
+  {% if trends %}
+  <div class="lp-head rv">
+    <span class="lp-eyebrow">Live data</span>
+    <h2>Price trends across the market</h2>
+    <p>Every tracked product, its latest verified price, and how it moved this week. Tap a product for its full trend.</p>
   </div>
-  <h3 class="fw-bold">Scan and Track Prices Now!</h3>
-  <p class="small text-secondary">No Account needed. Just Scan and check real-time market prices from your Barangay.</p>
-  <a class="btn-yellow mb-2" href="{{ url_for('public.scan') }}"><i class="fa-solid fa-qrcode"></i> SCAN NOW</a><br>
-  <a class="btn-pw-outline btn-sm-pw mt-2" href="{{ url_for('auth.register') }}">Create Free Account &rarr;</a>
-
-  <!-- QUICK BENEFITS -->
-  <div class="mt-4 mb-2 text-center">
-    <div class="mb-2" style="color:#0D5C36; font-weight:600;">✓ 100% Free for Consumers</div>
-    <div class="mb-2" style="color:#0D5C36; font-weight:600;">✓ No App Download Required</div>
-    <div class="mb-2" style="color:#0D5C36; font-weight:600;">✓ Covers 1,500+ Markets</div>
+  <div class="rv">
+    {{ trends_section(trends) }}
+    {{ trends_assets() }}
   </div>
-</section>
+  {% endif %}
 
-<div class="section-h">Everything You Need</div>
-<div class="text-center small text-secondary mb-3 px-4">Tools for consumers, vendors, LGU officials to ensure fair market pricing across the Philippines</div>
-<div class="feature-card"><b>Price Updates</b><span>Get price updates from multiple markets in your city the moment they are reported.</span></div>
-<div class="feature-card"><b>Price Gouging Alerts</b><span>Automatic detection and alerts when price spike beyond 20% of the average.</span></div>
-<div class="feature-card"><b>Verified Vendors</b><span>Find trusted vendors with LGU-verified badges. Buy with confidence from trusted sellers.</span></div>
-<div class="feature-card"><b>LGU Dashboard</b><span>Comprehensive tools for local government officials to monitor, verify, and act on reports.</span></div>
+  <!-- ===== Markets ===== -->
+  <div class="lp-head rv">
+    <span class="lp-eyebrow">Markets</span>
+    <h2>From Carbon to your barangay palengke</h2>
+    <p>Compare prices across vendors and markets — and save before you shop.</p>
+  </div>
+  <div class="lp-markets rv">
+    <div class="lp-market">
+      <img src="{{ url_for('static', filename='img/market-1.jpg') }}" alt="Market scene">
+      <div class="ov"></div>
+      <div class="tx"><b>Markets monitored</b><span>Public markets tracked by your LGU</span></div>
+    </div>
+    <div class="lp-market">
+      <img src="{{ url_for('static', filename='img/market-2.jpg') }}" alt="Shoppers comparing prices">
+      <div class="ov"></div>
+      <div class="tx"><b>Compare before you buy</b><span>Check vendors side by side</span></div>
+    </div>
+  </div>
 
-<div class="section-h">How It Works</div>
-<div class="how"><b>Scan QR Code or Create Account</b><span>Use your phone to scan any PresyoWatch QR code in partner markets — no account needed. Or register for full access.</span></div>
-<div class="how"><b>Report or View Market Prices</b><span>Submit price observations with a photo, or simply browse current prices in your area across all commodity categories.</span></div>
-<div class="how"><b>Get Alerts and Compare Prices</b><span>Set price thresholds and receive instant alerts. Compare prices across vendors and markets to find the best deal.</span></div>
+  <!-- ===== Features ===== -->
+  <div class="lp-head rv" id="features">
+    <span class="lp-eyebrow">Features</span>
+    <h2>Everything you need</h2>
+    <p>Tools for consumers, vendors, and LGU officials to keep market prices fair across the Philippines.</p>
+  </div>
+  <div class="lp-features">
+    <div class="lp-feat rv"><div class="ic ic-green"><i class="fa-solid fa-chart-line"></i></div><b>Price Updates</b><span>Get price updates from multiple markets in your city the moment they are reported.</span></div>
+    <div class="lp-feat rv"><div class="ic ic-red"><i class="fa-solid fa-bell"></i></div><b>Price Gouging Alerts</b><span>Automatic detection and alerts when a price spikes beyond 20% of the average.</span></div>
+    <div class="lp-feat rv"><div class="ic ic-gold"><i class="fa-solid fa-certificate"></i></div><b>Verified Vendors</b><span>Find trusted vendors with LGU-verified badges. Buy with confidence from trusted sellers.</span></div>
+    <div class="lp-feat rv"><div class="ic ic-blue"><i class="fa-solid fa-landmark"></i></div><b>LGU Dashboard</b><span>Comprehensive tools for local government officials to monitor, verify, and act on reports.</span></div>
+  </div>
 
-<div class="section-h">What the community are saying</div>
-<div class="testimonial">
-  <div class="stars mb-1">★★★★★</div>
-  <i>"It really saves money! I know where to find cheap vegetables even before I head to the market."</i>
-  <div class="mt-2"><b>Mitshi Amaroto</b><br><span class="text-muted">Resident, Lapu-Lapu City</span></div>
+  <!-- ===== How it works ===== -->
+  <div class="lp-head rv" id="how">
+    <span class="lp-eyebrow">How it works</span>
+    <h2>Three steps to fair prices</h2>
+  </div>
+  <div class="lp-steps">
+    <div class="lp-step rv"><b>Scan a QR code or create an account</b><span>Scan any PresyoWatch QR code in partner markets — no account needed. Or register for full access.</span></div>
+    <div class="lp-step rv"><b>Report or view market prices</b><span>Submit price observations with a photo, or browse current prices in your area across all commodities.</span></div>
+    <div class="lp-step rv"><b>Get alerts and compare prices</b><span>Set price thresholds and get instant alerts. Compare vendors and markets to find the best deal.</span></div>
+  </div>
+
+  <!-- ===== Scan ===== -->
+  <div class="lp-scan rv" style="margin-top: 64px">
+    <div class="lp-qr"><img src="{{ url_for('public.site_qr') }}" alt="PresyoWatch QR code"></div>
+    <div class="z">
+      <span class="lp-badge mb-2"><i class="fa-solid fa-user-slash"></i> No account needed</span>
+      <h3 class="mt-2">Scan and track prices now!</h3>
+      <p>Just scan and check real-time market prices from your barangay — right from your phone's camera.</p>
+      <div class="d-flex gap-2 flex-wrap">
+        <a class="btn-yellow" href="{{ url_for('public.scan') }}"><i class="fa-solid fa-qrcode"></i> Scan Now</a>
+        <a class="lp-btn-glass" href="{{ url_for('auth.register') }}">Create Free Account <i class="fa-solid fa-arrow-right"></i></a>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Testimonials ===== -->
+  <div class="lp-head rv">
+    <span class="lp-eyebrow">Community</span>
+    <h2>What the community is saying</h2>
+  </div>
+  <div class="lp-quotes rv">
+    <figure class="lp-quote m-0">
+      <div class="stars">★★★★★</div><span class="qmark" aria-hidden="true">“</span>
+      <p>It really saves money! I know where to find cheap vegetables even before I head to the market.</p>
+      <figcaption class="lp-who"><span class="av" style="background:#1f7a45">MA</span><div><b>Mitshi Amaroto</b><small>Resident, Lapu-Lapu City</small></div></figcaption>
+    </figure>
+    <figure class="lp-quote m-0">
+      <div class="stars">★★★★★</div><span class="qmark" aria-hidden="true">“</span>
+      <p>Mas dali na nako makapa-update sa presyo, ug mas misalig na ang akong mga suki tungod sa verified badge.</p>
+      <figcaption class="lp-who"><span class="av" style="background:#a46b00">GL</span><div><b>Gian Licardo</b><small>Vendor, Cebu City</small></div></figcaption>
+    </figure>
+    <figure class="lp-quote m-0">
+      <div class="stars">★★★★★</div><span class="qmark" aria-hidden="true">“</span>
+      <p>Helpful kaayo ang dashboard sa among monitoring. Dali ra makit-an ang mga presyo nga mataas ug mas paspas mi makaaksyon.</p>
+      <figcaption class="lp-who"><span class="av" style="background:#1d4e7c">CC</span><div><b>Engr. Ceejay Charles</b><small>LGU Staff, Cebu City</small></div></figcaption>
+    </figure>
+  </div>
+  <div class="lp-swipe"><i class="fa-solid fa-hand-pointer"></i> Swipe to see more</div>
+
+  <!-- ===== Final CTA ===== -->
+  <section class="lp-cta rv">
+    <h2>Start watching prices today</h2>
+    <p>Join residents, vendors, and LGUs working together for fair and honest market prices.</p>
+    <div class="row-btns">
+      <a class="btn-yellow" href="{{ url_for('auth.register') }}">Create Free Account <i class="fa-solid fa-arrow-right"></i></a>
+      <a class="lp-btn-glass" href="{{ url_for('public.price_search') }}"><i class="fa-solid fa-magnifying-glass"></i> Search Prices</a>
+    </div>
+  </section>
+
+  <!-- ===== Footer ===== -->
+  <footer class="lp-foot">
+    <div class="cols">
+      <div class="fbrand">
+        <b><img src="{{ url_for('static', filename='img/logo.svg') }}" alt=""> PresyoWatch</b>
+        <p class="mt-2 mb-0">Gobyernong Matapat, Presyong Tama. Real-time price monitoring for Filipino consumers and LGUs.</p>
+      </div>
+      <div><h6>Quick Links</h6><a href="#">Home</a><a href="#trends">Price Trends</a><a href="#features">Features</a><a href="{{ url_for('public.price_search') }}">Prices</a></div>
+      <div><h6>For Users</h6><a href="{{ url_for('auth.register') }}">Residents</a><a href="{{ url_for('auth.register') }}">Market Vendors</a><a href="{{ url_for('auth.staff_login') }}">LGU / DTI-DA Staff</a></div>
+    </div>
+    <div class="copy">&copy; 2026 PresyoWatch. All rights reserved. Made with heart for the Filipino people.</div>
+  </footer>
 </div>
-<div class="testimonial">
-  <div class="stars mb-1">★★★★★</div>
-  <i>"Mas dali na nako makapa-update sa presyo, ug mas misalig na ang akong mga suki tungod sa verified badge."</i>
-  <div class="mt-2"><b>Gian Licardo</b><br><span class="text-muted">Vendor, Cebu City</span></div>
-</div>
-<div class="testimonial">
-  <div class="stars mb-1">★★★★★</div>
-  <i>"Helpful kaayo ang dashboard sa among monitoring. Dali ra makit-an ang mga presyo nga mataas ug mas paspas mi makaaksyon."</i>
-  <div class="mt-2"><b>Engr. Ceejay Charles</b><br><span class="text-muted">LGU Staff, Cebu City</span></div>
-</div>
 
-<footer class="footer-dark mt-4">
-  <b>PresyoWatch</b>
-  <h6>Quick Links</h6><a href="#">Home</a><a href="#">About</a><a href="#">Features</a><a href="{{ url_for('public.price_search') }}">Prices</a>
-  <h6>For Users</h6><a href="{{ url_for('auth.register') }}">Residents</a><a href="{{ url_for('auth.register') }}">Market Vendors</a><a href="{{ url_for('auth.staff_login') }}">LGU / DTI-DA Staff</a>
-  <div class="mt-3 small">&copy; 2026 PresyoWatch. All rights reserved. Made with heart for the Filipino people.</div>
-</footer>
+<script>
+(function () {
+  // Reveal sections as they scroll into view. Without JS, or with reduced motion, everything is simply visible.
+  var lp = document.querySelector(".lp");
+  if (!lp || !("IntersectionObserver" in window)) return;
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  lp.classList.add("lp-js");
+  var io = new IntersectionObserver(function (entries) {
+    entries.forEach(function (e) { if (e.isIntersecting) { e.target.classList.add("in"); io.unobserve(e.target); } });
+  }, { rootMargin: "0px 0px -8% 0px", threshold: 0.08 });
+  lp.querySelectorAll(".rv").forEach(function (el, i) { el.style.transitionDelay = (i % 4) * 60 + "ms"; io.observe(el); });
+})();
+</script>
 {% endblock %}

@@ -1,6 +1,8 @@
 {% extends "base.html" %}
 {% from "_ui.html" import status_pill %}
-{% block title %}Report a Price — PresyoWatch{% endblock %}
+{% from "_vendor_picker.html" import vendor_picker, vendor_picker_assets %}
+{% block title %}Report a Price — PresyoWatch{{ vendor_picker_assets() }}
+{% endblock %}
 {% block content %}
 <h4 class="page-title">Report a Price</h4>
 
@@ -15,18 +17,19 @@
   </div>
   <div class="field">
     <label class="form-label">Market/Location</label>
-    <input class="input-pw" type="text" name="market_name" placeholder="e.g. Carbon Market" required maxlength="150">
+    <input class="input-pw" type="text" id="marketName" name="market_name" placeholder="e.g. Carbon Market" required maxlength="150">
   </div>
   <div class="field">
-    <label class="form-label">Vendor Name (optional)</label>
-    <input class="input-pw" name="vendor_name" placeholder="Vendor name…" maxlength="100">
+    <label class="form-label" for="reportVendor">Vendor / Store <span class="fl-opt">optional</span></label>
+    {{ vendor_picker(vendor_choices, market_input="marketName", input_id="reportVendor") }}
+    <div class="small-note mt-1">Type to search registered vendors and stores. Only vendors on the list can be chosen.</div>
   </div>
   <div class="field">
     <label class="form-label">Date Reported</label>
     <input class="input-pw" type="date" name="report_date" value="{{ today }}" max="{{ today }}">
   </div>
   <div class="field">
-    <label class="btn-pale btn-block" style="border-radius:14px"><i class="fa-solid fa-camera"></i> <span id="photoLabel">Add Photo (Optional)</span>
+    <label class="btn-pale btn-block"><i class="fa-solid fa-camera"></i> <span id="photoLabel">Add Photo (Optional)</span>
       <input type="file" name="photo" accept="image/png,image/jpeg" hidden onchange="document.getElementById('photoLabel').textContent = this.files[0] ? this.files[0].name : 'Add Photo (Optional)'">
     </label>
   </div>

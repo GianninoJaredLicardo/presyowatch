@@ -50,13 +50,17 @@
 </div>
 {% endmacro %}
 
-{# options: list of (value, text) #}
-{% macro fl_select(name, label, icon, options, required=false, selected='') %}
-<div class="fl-field">
+{# options: list of (value, text) or (value, text, subtext).
+   fancy=true swaps the browser's list for a styled, searchable panel (static/js/forms.js);
+   the real <select> stays underneath, so validation and submitting work the same. #}
+{% macro fl_select(name, label, icon, options, required=false, selected='', fancy=false, option_icon='') %}
+<div class="fl-field{{ ' fx-select' if fancy }}">
   <i class="fa-solid fa-{{ icon }} fl-icon" aria-hidden="true"></i>
-  <select class="fl-input" id="f-{{ name }}" name="{{ name }}" {{ 'required' if required }}>
+  <select class="fl-input" id="f-{{ name }}" name="{{ name }}" {{ 'required' if required }}
+          {% if fancy %}data-fancy data-option-icon="{{ option_icon or icon }}"{% endif %}>
     <option value="" {{ 'selected' if not selected }} disabled hidden></option>
-    {% for value, text in options %}<option value="{{ value }}" {{ 'selected' if value|string == selected|string }}>{{ text }}</option>{% endfor %}
+    {% for opt in options %}<option value="{{ opt[0] }}" {% if opt|length > 2 and opt[2] %}data-sub="{{ opt[2] }}"{% endif %}
+      {{ 'selected' if opt[0]|string == selected|string }}>{{ opt[1] }}</option>{% endfor %}
   </select>
   <label for="f-{{ name }}">{{ label }}{% if not required %} <span class="fl-opt">optional</span>{% endif %}</label>
 </div>
@@ -95,7 +99,7 @@
 <div class="col-md-3"><input class="form-control" name="last_name" value="{{ last }}" placeholder="Last Name" required></div>
 {% else %}
 <div class="fl-row">
-  {{ fl('first_name', ('Owner first name' if owner else 'First name'), 'user', required=true, value=first, autocomplete='given-name') }}
+  {{ fl('first_name', 'First name', 'user', required=true, value=first, autocomplete='given-name') }}
   {{ fl('last_name', 'Last name', 'user', required=true, value=last, autocomplete='family-name') }}
 </div>
 <div class="fl-field has-chip">

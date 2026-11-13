@@ -36,7 +36,7 @@
     {% else %}
     <form method="POST" action="{{ url_for('lgu.resolve_alert', alert_id=spike.alert_id) }}"><button class="btn-yellow btn-sm-pw" type="submit">Resolve</button></form>
     {% endif %}
-    <a class="btn-danger-soft btn-sm-pw" style="background:#c9584f" href="{{ url_for('lgu.report_detail', report_id=spike.report_id) }}">View Details</a>
+    <a class="btn-red btn-sm-pw" href="{{ url_for('lgu.report_detail', report_id=spike.report_id) }}">View Details</a>
   </div>
 </div>
 {% else %}
@@ -45,7 +45,7 @@
 
 <!-- Flagged Vendors Button (Visible to Both) -->
 <div class="mt-3 mb-3">
-  <a href="{{ url_for('lgu.flagged_vendors') }}" class="btn-pw w-100" style="background: #D32F2F; border-color: #D32F2F; color: white; padding: 14px; border-radius: 12px; font-weight: 600; display: block; text-decoration: none; text-align: center; box-shadow: 0 4px 12px rgba(211, 47, 47, 0.2);">
+  <a href="{{ url_for('lgu.flagged_vendors') }}" class="btn-red btn-block">
     <i class="fa-solid fa-flag"></i> View Flagged Vendors
   </a>
 </div>

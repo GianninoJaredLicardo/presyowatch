@@ -1,53 +1,37 @@
 {% extends "base.html" %}
-{% from "_ui.html" import brand %}
+{% from "_ui.html" import brand, fl, fl_select, name_fields %}
 {% set hide_nav = true %}
+{% set is_vendor = role == 'vendor' %}
 {% block title %}Your Details — PresyoWatch{% endblock %}
 {% block content %}
 
 <div class="auth-head">
   <div class="steps" aria-label="Step 2 of 2"><span class="on"></span><span class="on"></span></div>
   <h1 class="auth-title">Your details</h1>
-  <div class="auth-sub">Step 2: Fill in your information</div>
+  <div class="auth-sub">Step 2: {{ 'Tell us about you and your store' if is_vendor else 'Fill in your information' }}</div>
 </div>
 
-<form method="POST" class="pw-card white auth-card">
+<form method="POST" class="pw-card white auth-card" data-modern-form>
   {{ brand(56) }}
-  
-  <input type="hidden" name="role" value="{{ request.args.get('role', 'resident') }}">
 
-  <div class="field mt-3">
-    <input class="input-pw" name="first_name" placeholder="First Name" required>
-  </div>
-  <div class="field">
-    <input class="input-pw" name="last_name" placeholder="Last Name" required>
-  </div>
-  <div class="field">
-    <input class="input-pw" type="email" name="email" placeholder="Email Address" required>
-  </div>
-  <div class="field">
-    <input class="input-pw" type="password" name="password" placeholder="Password (min. 6 characters)" required minlength="6">
-  </div>
-  <div class="field">
-    <input class="input-pw" type="password" name="confirm_password" placeholder="Confirm Password" required minlength="6">
-  </div>
-  <div class="field">
-    <input class="input-pw" name="contact_number" placeholder="Contact Number">
-  </div>
-  <div class="field">
-    <select class="input-pw" name="city">
-      <option value="Cebu City">Cebu City</option>
-      <option value="Lapu-Lapu City">Lapu-Lapu City</option>
-    </select>
-  </div>
+  <div class="form-section mt-3"><i class="fa-solid fa-user"></i> {{ 'Owner' if is_vendor else 'Personal' }} information</div>
+  {{ name_fields(owner=is_vendor) }}
+  {{ fl('contact_number', 'Contact number', 'phone', type='tel', autocomplete='tel', attrs='inputmode="tel" maxlength="20"') }}
 
-  {% if request.args.get('role') == 'vendor' %}
-  <div class="field">
-    <input class="input-pw" name="business_name" placeholder="Business Name" required>
-  </div>
-  <div class="field">
-    <input class="input-pw" name="business_address" placeholder="Business Address (e.g. Carbon Market)" required>
-  </div>
+  {% if is_vendor %}
+  <div class="form-section"><i class="fa-solid fa-store"></i> Store information</div>
+  {{ fl('business_name', 'Business / store name', 'store', required=true, attrs='maxlength="100"') }}
+  {{ fl_select('market_id', 'Market', 'location-dot', markets_options, required=true, fancy=true, option_icon='store') }}
+  {{ fl('business_address', 'Stall no. / address', 'map-pin', attrs='maxlength="150"') }}
+  {% else %}
+  {{ fl_select('city', 'City', 'city', city_options, required=true) }}
   {% endif %}
+
+  <div class="form-section"><i class="fa-solid fa-lock"></i> Account</div>
+  {{ fl('email', 'Email address', 'envelope', type='email', required=true, autocomplete='email') }}
+  {{ fl('password', 'Password (min. 6 characters)', 'lock', type='password', required=true, autocomplete='new-password', attrs='minlength="6" data-strength') }}
+  <div class="pw-meter" data-meter hidden><span></span><span></span><span></span><span></span><em></em></div>
+  {{ fl('confirm_password', 'Confirm password', 'lock', type='password', required=true, autocomplete='new-password', attrs='minlength="6" data-confirm') }}
 
   <button class="btn-pw btn-block btn-submit mt-3" type="submit">
     <span>Create Account <i class="fa-solid fa-check"></i></span>

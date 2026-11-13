@@ -8,7 +8,6 @@
   <div style="background:#c8dc9d;padding:14px 16px 18px">
     <div class="d-flex align-items-center gap-3 flex-wrap mb-3">
       {% if vendor.is_verified_vendor %}{{ verified() }}{% else %}<span class="pill gray">Not yet verified</span>{% endif %}
-      {% if vendor.is_price_flagged %}<span class="pill red"><i class="fa-solid fa-flag"></i> Flagged for overpricing</span>{% endif %}
       <span class="small text-secondary">{{ market.market_name if market else '' }}{% if vendor.business_address %}, {{ vendor.business_address }}{% endif %}</span>
     </div>
     <div class="stat-row c3">
@@ -26,6 +25,7 @@
     {% for l in listings %}
     <div class="pw-card white d-flex justify-content-between align-items-center" style="padding:14px 18px;margin-bottom:12px;border-radius:14px">
       <span class="fw-semibold">{{ l.name }} <small class="text-muted">(per {{ l.unit }})</small>
+        {% if l.is_price_flagged %}<span class="pill red" style="font-size:.65rem" title="Flagged by the LGU for overpricing"><i class="fa-solid fa-flag"></i> Overpricing</span>{% endif %}
         {% if l.stock_status != 'in_stock' %}<br><small class="text-danger">{{ l.stock_status.replace('_', ' ')|title }}</small>{% endif %}</span>
       {% set d = 'down' if l.prev_price and l.price < l.prev_price else ('up' if l.prev_price and l.price > l.prev_price else none) %}
       <span class="price {{ d or '' }}">₱{{ l.price|peso }} {{ arrow(d) }}</span>

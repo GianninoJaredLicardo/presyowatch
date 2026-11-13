@@ -16,10 +16,10 @@
       <small class="text-muted">Add multiple products using a CSV file.</small>
     </div>
     <div class="d-flex gap-2">
-      <a href="{{ url_for('vendor.download_template') }}" class="btn-pw-outline btn-sm-pw" style="padding: 6px 12px; font-size: 0.8rem;">Download Template</a>
+      <a href="{{ url_for('vendor.download_template') }}" class="btn-pw-outline btn-sm-pw">Download Template</a>
       <form method="POST" action="{{ url_for('vendor.import_listings') }}" enctype="multipart/form-data" class="d-inline">
         <input type="file" name="csv_file" accept=".csv" id="csvUpload" hidden onchange="this.form.submit()">
-        <label for="csvUpload" class="btn-pw btn-sm-pw" style="padding: 6px 12px; font-size: 0.8rem; cursor: pointer; margin-bottom: 0;">
+        <label for="csvUpload" class="btn-pw btn-sm-pw mb-0">
           Import CSV
         </label>
       </form>
@@ -36,7 +36,7 @@
   <a class="edit-btn" href="{{ url_for('vendor.listing_form', listing_id=l.listing_id) }}" title="Edit">
     <i class="fa-regular fa-pen-to-square"></i>
   </a>
-  <div class="name">{{ l.name }}</div>
+  <div class="name">{{ l.name }}{% if l.is_price_flagged %} <span class="pill red" style="font-size:.65rem" title="{{ l.price_flag_reason or '' }}"><i class="fa-solid fa-flag"></i> Flagged</span>{% endif %}</div>
   <div class="meta">{{ l.category }}</div>
   <div class="d-flex justify-content-between align-items-center mt-2">
     <span class="price fs-5">₱{{ l.price|peso }}/{{ l.unit }}</span>

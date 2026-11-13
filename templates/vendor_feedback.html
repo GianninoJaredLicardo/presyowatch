@@ -23,7 +23,7 @@
   <p class="small mt-2 mb-2">{{ r.comment }}</p>
   {% if r.reply %}<div class="small p-2 rounded mb-2" style="background:rgba(255,255,255,.55)"><b>Your reply:</b> {{ r.reply }}</div>{% endif %}
   <details>
-    <summary class="btn-soft btn-sm-pw d-inline-flex" style="list-style:none">{{ 'Edit reply' if r.reply else 'Reply' }}</summary>
+    <summary class="btn-soft btn-sm-pw d-inline-flex summary-btn">{{ 'Edit reply' if r.reply else 'Reply' }}</summary>
     <form method="POST" action="{{ url_for('vendor.reply_review', review_id=r.review_id) }}" class="mt-2">
       <textarea class="input-pw mb-2" name="reply" maxlength="500" placeholder="Write a reply…">{{ r.reply or '' }}</textarea>
       <button class="btn-pw btn-sm-pw" type="submit">Post reply</button>
@@ -31,7 +31,7 @@
   </details>
   {% if not r.is_flagged %}
   <form method="POST" action="{{ url_for('vendor.flag_review', review_id=r.review_id) }}" class="d-inline">
-    <button class="btn-danger-soft btn-sm-pw mt-2" type="submit" style="background:#e5a08f">Flag</button>
+    <button class="btn-danger-soft btn-sm-pw mt-2" type="submit">Flag</button>
   </form>
   {% else %}<span class="pill red mt-2">Flagged</span>{% endif %}
 </div>

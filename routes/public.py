@@ -2,12 +2,13 @@ from datetime import datetime
 from io import BytesIO
 
 from flask import (
-    Blueprint, render_template, request, send_file, redirect, url_for, flash, abort
+    Blueprint, render_template, request, send_file, redirect, url_for, flash, abort, current_app
 )
 from flask_login import current_user
 
 from models import Listing, Market, PriceReport, Product, Review, ScanEvent, User
 from utils.helpers import vendor_stats
+from utils.trends import build_trends
 from utils.qr_generator import generate_qr_bytes, market_price_search_url
 from utils.notifications import notify
 
@@ -16,7 +17,12 @@ bp = Blueprint("public", __name__)
 
 @bp.route("/")
 def home():
-    return render_template("home.html")
+    try:
+        trends = build_trends()
+    except Exception:
+        current_app.logger.exception("Could not build landing-page price trends")
+        trends = None  # the landing page still loads without the trends section
+    return render_template("home.html", trends=trends)
 
 
 @bp.route("/prices/search")
@@ -42,7 +48,7 @@ def price_search():
         results.append({
             "name": l.name, "category": l.category, "seller": vendor.business_name or vendor.full_name,
             "seller_id": vendor.user_id, "verified": vendor.is_verified_vendor,
-            "price_flagged": vendor.is_price_flagged,
+            "price_flagged": l.is_price_flagged,
             "market_id": vendor.market_id, "market": market.market_name if market else "",
             "city": market.city if market else vendor.city, "price": float(l.price), "unit": l.unit,
             "date": l.updated_at, "product_id": l.product_id,

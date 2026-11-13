@@ -641,3 +641,168 @@ select.fl-input {
 .notif-msg { color: #4a4a4a; }
 .notif-body small { color: var(--muted); }
 .notif-dot { flex: 0 0 9px; height: 9px; border-radius: 50%; background: var(--red); margin-top: 6px; }
+
+/* floating-label dropdowns: green chevron when active, roomier options */
+select.fl-input:hover, select.fl-input:focus {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='none' stroke='%231f7a45' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' d='M1 1.5l5 5 5-5'/%3E%3C/svg%3E");
+}
+select.fl-input:focus { background-color: #fff; }
+select.fl-input option { padding: 10px 12px; color: #1f2a1d; background: #fff; }
+select.fl-input option:checked { background: var(--primary-soft); color: var(--primary); font-weight: 600; }
+
+/* styled dropdown panel (fl_select fancy=true) */
+.fx-select { z-index: 1; }
+.fx-select.fx-open { z-index: 45; }
+.fx-trigger { position: absolute; left: 0; right: 0; top: 0; height: 56px; width: 100%; border: 0; background: transparent; cursor: pointer; border-radius: 14px; }
+.fx-select.fx-open select.fl-input {
+  border-color: var(--primary); background-color: #fff; box-shadow: 0 0 0 4px rgba(31, 122, 69, .13);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='none' stroke='%231f7a45' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' d='M1 6.5l5-5 5 5'/%3E%3C/svg%3E");
+}
+.fx-select.fx-open .fl-icon { color: var(--primary); }
+.fx-panel {
+  position: absolute; left: 0; right: 0; top: 62px; background: #fff; border: 1px solid var(--line);
+  border-radius: 16px; box-shadow: 0 14px 34px rgba(24, 48, 28, .16); overflow: hidden; animation: fx-in .14s ease-out;
+}
+@keyframes fx-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+.fx-search { position: relative; padding: 10px 10px 6px; }
+.fx-search i { position: absolute; left: 22px; top: 50%; transform: translateY(-30%); color: #9aa395; font-size: .8rem; }
+.fx-search input {
+  width: 100%; border: 1.5px solid var(--line); border-radius: 10px; padding: 8px 12px 8px 34px;
+  font-size: .88rem; background: var(--surface-2); outline: none;
+}
+.fx-search input:focus { border-color: var(--primary); background: #fff; }
+.fx-list { max-height: 264px; overflow-y: auto; padding: 4px 6px 6px; }
+.fx-opt { display: flex; align-items: center; gap: 12px; padding: 9px 10px; border-radius: 10px; cursor: pointer; }
+.fx-opt.active, .fx-opt:hover { background: #f1f6ee; }
+.fx-opt.picked { background: var(--primary-soft); }
+.fx-ico { flex: 0 0 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; background: #eef3ea; color: var(--primary); font-size: .85rem; }
+.fx-opt.picked .fx-ico { background: var(--primary); color: #fff; }
+.fx-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.25; }
+.fx-txt b { font-size: .92rem; color: #1f2a1d; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fx-txt small { font-size: .76rem; color: var(--muted); }
+.fx-check { color: var(--primary); font-size: .8rem; visibility: hidden; }
+.fx-opt.picked .fx-check { visibility: visible; }
+.fx-empty { padding: 14px; text-align: center; color: var(--muted); font-size: .88rem; }
+
+/* ==== modern buttons ========================================================
+   One look for every button class in the app: rounded, bold, soft depth, a small
+   lift on hover, a press on click, a clear focus ring, and a proper disabled state.
+   Placed last so it overrides the older button rules above. */
+.btn-pw, .btn-pw-outline, .btn-yellow, .btn-soft, .btn-danger-soft, .btn-pale, .btn-logout,
+.btn-red, .btn-blue, .btn-approve, .btn-flag, .btn-ghost, .btn-tiny {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  border: 1.5px solid transparent; border-radius: 14px; padding: 11px 20px;
+  font-weight: 700; font-size: .92rem; line-height: 1.2; letter-spacing: .005em;
+  text-decoration: none; text-align: center; white-space: nowrap; cursor: pointer; user-select: none;
+  transition: background-color .18s ease, border-color .18s ease, color .18s ease,
+              box-shadow .18s ease, transform .12s ease, filter .18s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.btn-pw i, .btn-pw-outline i, .btn-yellow i, .btn-soft i, .btn-danger-soft i, .btn-pale i,
+.btn-red i, .btn-blue i, .btn-approve i, .btn-flag i, .btn-ghost i, .btn-tiny i { font-size: .9em; }
+
+/* hover lift + press */
+.btn-pw:hover, .btn-pw-outline:hover, .btn-yellow:hover, .btn-soft:hover, .btn-danger-soft:hover, .btn-pale:hover,
+.btn-logout:hover, .btn-red:hover, .btn-blue:hover, .btn-approve:hover, .btn-flag:hover, .btn-ghost:hover, .btn-tiny:hover {
+  transform: translateY(-1px); filter: none;
+}
+.btn-pw:active, .btn-pw-outline:active, .btn-yellow:active, .btn-soft:active, .btn-danger-soft:active, .btn-pale:active,
+.btn-logout:active, .btn-red:active, .btn-blue:active, .btn-approve:active, .btn-flag:active, .btn-ghost:active, .btn-tiny:active {
+  transform: translateY(0) scale(.98); box-shadow: none;
+}
+.btn-pw:focus-visible, .btn-pw-outline:focus-visible, .btn-yellow:focus-visible, .btn-soft:focus-visible,
+.btn-danger-soft:focus-visible, .btn-pale:focus-visible, .btn-logout:focus-visible, .btn-red:focus-visible,
+.btn-blue:focus-visible, .btn-approve:focus-visible, .btn-flag:focus-visible, .btn-ghost:focus-visible, .btn-tiny:focus-visible {
+  outline: none; box-shadow: 0 0 0 4px rgba(31, 122, 69, .22);
+}
+.btn-pw:disabled, .btn-pw-outline:disabled, .btn-yellow:disabled, .btn-soft:disabled, .btn-danger-soft:disabled,
+.btn-pale:disabled, .btn-red:disabled, .btn-blue:disabled, .btn-approve:disabled, .btn-flag:disabled, .btn-tiny:disabled {
+  opacity: .55; cursor: not-allowed; transform: none; box-shadow: none;
+}
+
+/* primary: green gradient with soft glow */
+.btn-pw { background: linear-gradient(180deg, #24894e 0%, var(--primary) 100%); color: #fff;
+  box-shadow: 0 1px 0 rgba(255,255,255,.18) inset, 0 6px 16px rgba(31, 122, 69, .26); }
+.btn-pw:hover { color: #fff; background: linear-gradient(180deg, #1f7a45 0%, var(--primary-dark) 100%);
+  box-shadow: 0 1px 0 rgba(255,255,255,.18) inset, 0 10px 22px rgba(31, 122, 69, .32); }
+
+/* outline: white with tinted hover */
+.btn-pw-outline { background: #fff; color: var(--ink); border-color: var(--line-strong); box-shadow: 0 1px 2px rgba(16,24,16,.05); }
+.btn-pw-outline:hover { background: var(--primary-soft); border-color: var(--primary); color: var(--primary-dark);
+  box-shadow: 0 6px 14px rgba(31, 122, 69, .12); }
+
+/* soft green / pale / ghost */
+.btn-soft, .btn-approve { background: var(--primary-soft); color: var(--primary-dark); border-color: #cfe6d7; }
+.btn-soft:hover, .btn-approve:hover { background: #d6ecdf; color: var(--primary-dark); box-shadow: 0 6px 14px rgba(31, 122, 69, .12); }
+.btn-pale { background: #fff; color: var(--ink); border-color: var(--line); box-shadow: 0 1px 2px rgba(16,24,16,.05); }
+.btn-pale:hover { background: var(--surface-2); border-color: var(--line-strong); color: var(--ink); box-shadow: 0 6px 14px rgba(16, 24, 16, .08); }
+.btn-ghost { background: #fff; color: var(--primary); border-color: var(--fl-line, var(--line)); padding: 12px; }
+.btn-ghost:hover { background: var(--primary-soft); color: var(--primary-dark); border-color: #cfe6d7; }
+
+/* yellow accent */
+.btn-yellow { background: linear-gradient(180deg, #f2b42c 0%, var(--accent) 100%); color: #2b1d00;
+  box-shadow: 0 6px 16px rgba(232, 163, 23, .28); }
+.btn-yellow:hover { color: #2b1d00; background: linear-gradient(180deg, #eaa920 0%, #d39212 100%); box-shadow: 0 10px 22px rgba(232, 163, 23, .34); }
+.btn-flag { background: var(--accent-soft); color: #8a5a00; border-color: #f3dfa9; }
+.btn-flag:hover { background: #ffecb8; color: #6f4800; }
+
+/* danger: soft red that turns solid on hover; solid red */
+.btn-danger-soft, .btn-logout { background: var(--red-soft); color: var(--red-dark); border-color: #f7cfca; }
+.btn-danger-soft:hover, .btn-logout:hover { background: var(--red); border-color: var(--red); color: #fff; box-shadow: 0 8px 18px rgba(214, 69, 65, .28); }
+.btn-red { background: linear-gradient(180deg, #df5753 0%, var(--red) 100%); color: #fff; box-shadow: 0 6px 16px rgba(214, 69, 65, .26); }
+.btn-red:hover { color: #fff; background: linear-gradient(180deg, #d64541 0%, var(--red-dark) 100%); box-shadow: 0 10px 22px rgba(214, 69, 65, .32); }
+.btn-logout { width: 100%; padding: 13px; font-size: .98rem; }
+
+/* blue */
+.btn-blue { background: #e5eefb; color: var(--blue); border-color: #cddcf3; }
+.btn-blue:hover { background: #d6e4f8; color: var(--blue); }
+
+/* tiny (spike card actions) */
+.btn-tiny { border-radius: 10px; padding: 7px 12px; font-size: .76rem; background: #fff; color: var(--ink); border-color: var(--line-strong); }
+.btn-tiny.y { background: var(--accent-soft); border-color: #f0dca6; color: #8a5a00; }
+.btn-tiny.g { background: var(--primary); border-color: var(--primary); color: #fff; }
+.btn-tiny.r { background: var(--red); border-color: var(--red); color: #fff; }
+
+/* sizes */
+.btn-block { width: 100%; display: flex; }
+.btn-sm-pw { padding: 8px 14px; font-size: .8rem; border-radius: 11px; gap: 6px; }
+.btn-xs-pw { padding: 5px 11px; font-size: .74rem; border-radius: 9px; gap: 5px; }
+.btn-lg-pw { padding: 14px 28px; font-size: 1rem; border-radius: 16px; }
+.btn-sm-pw.btn-pw, .btn-xs-pw.btn-pw { box-shadow: 0 3px 10px rgba(31, 122, 69, .22); }
+.btn-sm-pw.btn-yellow, .btn-xs-pw.btn-yellow { box-shadow: 0 3px 10px rgba(232, 163, 23, .24); }
+.btn-submit { height: 52px; border-radius: 16px; font-size: 1rem; }
+
+/* Bootstrap buttons used on the admin / wide pages */
+.app-shell .btn {
+  border-radius: 11px; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  transition: background-color .18s ease, border-color .18s ease, color .18s ease, box-shadow .18s ease, transform .12s ease;
+}
+.app-shell .btn:hover { transform: translateY(-1px); }
+.app-shell .btn:active { transform: scale(.98); }
+.app-shell .btn:focus-visible { box-shadow: 0 0 0 4px rgba(31, 122, 69, .22); }
+.app-shell .btn-sm { border-radius: 9px; padding: 5px 12px; font-size: .8rem; }
+.app-shell .btn-success { background: var(--primary); border-color: var(--primary); box-shadow: 0 3px 10px rgba(31, 122, 69, .22); }
+.app-shell .btn-success:hover { background: var(--primary-dark); border-color: var(--primary-dark); }
+.app-shell .btn-outline-success { color: var(--primary); border-color: #b9dcc6; background: #fff; }
+.app-shell .btn-outline-success:hover { background: var(--primary-soft); color: var(--primary-dark); border-color: var(--primary); }
+.app-shell .btn-outline-danger { color: var(--red-dark); border-color: #f2c4bf; background: #fff; }
+.app-shell .btn-outline-danger:hover { background: var(--red); color: #fff; border-color: var(--red); }
+.app-shell .btn-danger { background: var(--red); border-color: var(--red); }
+.app-shell .btn-danger:hover { background: var(--red-dark); border-color: var(--red-dark); }
+.app-shell .btn-outline-secondary { color: var(--ink); border-color: var(--line-strong); background: #fff; }
+.app-shell .btn-outline-secondary:hover { background: var(--surface-2); color: var(--ink); border-color: var(--muted); }
+.app-shell .btn-outline-primary { color: var(--blue); border-color: #c4d6ef; background: #fff; }
+.app-shell .btn-outline-primary:hover { background: #e5eefb; color: var(--blue); border-color: var(--blue); }
+
+@media (prefers-reduced-motion: reduce) {
+  .btn-pw, .btn-pw-outline, .btn-yellow, .btn-soft, .btn-danger-soft, .btn-pale, .btn-logout,
+  .btn-red, .btn-blue, .btn-approve, .btn-flag, .btn-ghost, .btn-tiny, .app-shell .btn { transition: none; transform: none !important; }
+}
+
+/* DTI login keeps its blue identity */
+.btn-pw.btn-dti { background: linear-gradient(180deg, #1e74d0 0%, #1565c0 100%); box-shadow: 0 6px 16px rgba(21, 101, 192, .28); }
+.btn-pw.btn-dti:hover { background: linear-gradient(180deg, #1565c0 0%, #0d4f9c 100%); box-shadow: 0 10px 22px rgba(21, 101, 192, .34); }
+.btn-pw.btn-dti:focus-visible { box-shadow: 0 0 0 4px rgba(21, 101, 192, .25); }
+/* <summary> used as a button: hide the disclosure marker */
+.summary-btn { list-style: none; }
+.summary-btn::-webkit-details-marker { display: none; }

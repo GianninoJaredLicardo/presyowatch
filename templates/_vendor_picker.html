@@ -1,0 +1,134 @@
+{# Type-to-search picker that only accepts registered vendors.
+   vendors: list of dicts {id, name, place, market}.
+   Submits the chosen vendor's id in a hidden input called `name`.
+   market_input: optional id of a text input to fill with the vendor's market when it is empty. #}
+{% macro vendor_picker(vendors, name="vendor_id", required=false, placeholder="Choose vendor", market_input=none, input_id="vendorPicker") %}
+<div class="vpick" data-market-input="{{ market_input or '' }}" data-required="{{ 'true' if required else 'false' }}">
+  <input type="hidden" name="{{ name }}" class="vpick-value">
+  <div class="vpick-box">
+    <i class="fa-solid fa-magnifying-glass"></i>
+    <input class="input-pw vpick-input" id="{{ input_id }}" type="text" placeholder="{{ placeholder }}" autocomplete="off"
+           role="combobox" aria-expanded="false" aria-autocomplete="list" {{ 'disabled' if not vendors }}>
+    <button type="button" class="vpick-clear" aria-label="Clear vendor" hidden><i class="fa-solid fa-xmark"></i></button>
+  </div>
+  <div class="vpick-list" role="listbox" hidden></div>
+  <div class="vpick-error small text-danger mt-1" hidden>Please choose a vendor from the list.</div>
+  <script type="application/json" class="vpick-data">{{ vendors|tojson }}</script>
+</div>
+{% if not vendors %}<div class="small text-muted mt-1">No vendors have been registered yet.</div>{% endif %}
+{% endmacro %}
+
+{# Include once per page, after the pickers. #}
+{% macro vendor_picker_assets() %}
+<style>
+  .vpick { position: relative; }
+  .vpick-box { position: relative; }
+  .vpick-box > .fa-magnifying-glass { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: #9aa395; font-size: .85rem; pointer-events: none; }
+  .vpick-input { padding-left: 36px !important; padding-right: 36px !important; }
+  .vpick-clear { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); border: 0; background: none; color: #9aa395; padding: 4px 8px; }
+  .vpick-clear:hover { color: #D32F2F; }
+  .vpick-list { position: absolute; left: 0; right: 0; top: calc(100% + 4px); z-index: 40; background: #fff; border: 1px solid var(--line, #e4e9de);
+    border-radius: 12px; box-shadow: 0 8px 22px rgba(0,0,0,.12); max-height: 260px; overflow-y: auto; }
+  .vpick-opt { padding: 10px 14px; cursor: pointer; }
+  .vpick-opt + .vpick-opt { border-top: 1px solid #f0f2ed; }
+  .vpick-opt.active, .vpick-opt:hover { background: var(--primary-soft, #e6f2ea); }
+  .vpick-opt b { display: block; font-size: .92rem; }
+  .vpick-opt small { color: #6b7466; }
+  .vpick-opt mark { background: #fff1b8; padding: 0; }
+  .vpick-empty { padding: 12px 14px; color: #6b7466; font-size: .88rem; }
+</style>
+<script>
+(function () {
+  function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); }
+  function hl(text, q) {
+    if (!q) return esc(text);
+    var i = text.toLowerCase().indexOf(q);
+    if (i < 0) return esc(text);
+    return esc(text.slice(0, i)) + "<mark>" + esc(text.slice(i, i + q.length)) + "</mark>" + esc(text.slice(i + q.length));
+  }
+
+  document.querySelectorAll(".vpick").forEach(function (root) {
+    var vendors = JSON.parse(root.querySelector(".vpick-data").textContent || "[]");
+    var input = root.querySelector(".vpick-input"), hidden = root.querySelector(".vpick-value"),
+        list = root.querySelector(".vpick-list"), clearBtn = root.querySelector(".vpick-clear"),
+        error = root.querySelector(".vpick-error"), required = root.dataset.required === "true",
+        marketInput = root.dataset.marketInput ? document.getElementById(root.dataset.marketInput) : null;
+    var shown = [], active = -1, chosen = null;
+
+    function render() {
+      var q = input.value.trim().toLowerCase();
+      // Match anywhere in the name, market or city, so typing any part of it finds the vendor.
+      shown = vendors.filter(function (v) {
+        return !q || (v.name + " " + (v.place || "")).toLowerCase().indexOf(q) >= 0;
+      });
+      // Names that start with what was typed come first.
+      if (q) shown.sort(function (a, b) {
+        return (a.name.toLowerCase().indexOf(q) === 0 ? 0 : 1) - (b.name.toLowerCase().indexOf(q) === 0 ? 0 : 1);
+      });
+      active = shown.length ? 0 : -1;
+      list.innerHTML = shown.length
+        ? shown.map(function (v, i) {
+            return '<div class="vpick-opt' + (i === active ? ' active' : '') + '" role="option" data-i="' + i + '"><b>' +
+              hl(v.name, q) + '</b>' + (v.place ? '<small>' + hl(v.place, q) + '</small>' : '') + '</div>';
+          }).join("")
+        : '<div class="vpick-empty">No registered vendor matches "' + esc(input.value.trim()) + '".</div>';
+      open();
+    }
+    function open() { list.hidden = false; input.setAttribute("aria-expanded", "true"); }
+    function close() { list.hidden = true; input.setAttribute("aria-expanded", "false"); }
+    function setActive(i) {
+      var opts = list.querySelectorAll(".vpick-opt");
+      if (!opts.length) return;
+      active = (i + opts.length) % opts.length;
+      opts.forEach(function (o, j) { o.classList.toggle("active", j === active); });
+      opts[active].scrollIntoView({block: "nearest"});
+    }
+    function choose(v) {
+      chosen = v;
+      hidden.value = v ? v.id : "";
+      input.value = v ? v.name : "";
+      clearBtn.hidden = !v;
+      error.hidden = true;
+      if (v && marketInput && !marketInput.value.trim() && v.market) marketInput.value = v.market;
+      close();
+    }
+
+    input.addEventListener("focus", render);
+    input.addEventListener("click", render);
+    input.addEventListener("input", function () {
+      if (chosen && input.value !== chosen.name) { chosen = null; hidden.value = ""; clearBtn.hidden = true; }
+      render();
+    });
+    input.addEventListener("keydown", function (e) {
+      if (e.key === "ArrowDown") { e.preventDefault(); list.hidden ? render() : setActive(active + 1); }
+      else if (e.key === "ArrowUp") { e.preventDefault(); setActive(active - 1); }
+      else if (e.key === "Enter" && !list.hidden) { e.preventDefault(); if (shown[active]) choose(shown[active]); }
+      else if (e.key === "Escape") { close(); }
+    });
+    list.addEventListener("mousedown", function (e) {
+      var opt = e.target.closest(".vpick-opt");
+      if (opt) { e.preventDefault(); choose(shown[+opt.dataset.i]); }
+    });
+    input.addEventListener("blur", function () {
+      close();
+      // Only registered vendors are allowed: accept an exact name match, otherwise clear the text.
+      if (!chosen && input.value.trim()) {
+        var exact = vendors.filter(function (v) { return v.name.toLowerCase() === input.value.trim().toLowerCase(); });
+        if (exact.length === 1) choose(exact[0]);
+        else { error.hidden = false; }
+      }
+    });
+    clearBtn.addEventListener("click", function () { choose(null); input.focus(); });
+
+    var form = root.closest("form");
+    if (form) form.addEventListener("submit", function (e) {
+      if ((input.value.trim() && !chosen) || (required && !chosen)) {
+        e.preventDefault();
+        error.hidden = false;
+        input.focus();
+      }
+    });
+  });
+})();
+</script>
+{% endmacro %}
