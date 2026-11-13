@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% from "_ui.html" import brand %}
+{% set hide_nav = true %}
+{% block title %}LGU / DTI Registration — PresyoWatch{% endblock %}
+{% block content %}
+
+<div class="auth-head">
+  <div class="steps" aria-label="Step 2 of 2"><span class="on"></span><span class="on"></span></div>
+  <h1 class="auth-title">LGU / DTI Staff</h1>
+  <div class="auth-sub">Create your government account</div>
+</div>
+
+<form method="POST" class="pw-card white auth-card">
+  {{ brand(56) }}
+  
+  <div class="field mt-3">
+    <input class="input-pw" name="first_name" placeholder="First Name" required>
+  </div>
+  
+  <!-- MIDDLE NAME FIELDS -->
+  <div class="field">
+    <input class="input-pw" name="middle_name" placeholder="Middle Name">
+  </div>
+  <div class="field d-flex align-items-center gap-2 mb-2">
+    <input type="checkbox" name="no_middle_name" id="no_middle_name" value="1" style="width: 18px; height: 18px;">
+    <label for="no_middle_name" class="small text-muted mb-0">I have no middle name (N/A)</label>
+  </div>
+
+  <div class="field">
+    <input class="input-pw" name="last_name" placeholder="Last Name" required>
+  </div>
+  
+  <div class="field">
+    <input class="input-pw" type="email" name="email" placeholder="Work Email" required>
+  </div>
+  <div class="field">
+    <input class="input-pw" type="password" name="password" placeholder="Password" required minlength="6">
+  </div>
+  <div class="field">
+    <input class="input-pw" type="password" name="confirm_password" placeholder="Confirm Password" required minlength="6">
+  </div>
+  <div class="field">
+    <input class="input-pw" name="contact_number" placeholder="Contact Number">
+  </div>
+  <div class="field">
+    <input class="input-pw" name="org_name" placeholder="Organization (e.g. Municipality of Cebu City)" required>
+  </div>
+  <div class="field">
+    <input class="input-pw" name="division" placeholder="Division (e.g. Price Monitoring Division)" required>
+  </div>
+  <div class="field">
+    <select class="input-pw" name="city">
+      <option value="Cebu City">Cebu City</option>
+      <option value="Lapu-Lapu City">Lapu-Lapu City</option>
+    </select>
+  </div>
+
+  <button class="btn-pw btn-block btn-submit mt-3" type="submit">
+    <span>Request Access <i class="fa-solid fa-arrow-right"></i></span>
+  </button>
+</form>
+
+<div class="auth-foot">
+  <a href="{{ url_for('auth.staff_login') }}">← Back to Staff Login</a>
+</div>
+
+{% endblock %}
