@@ -155,6 +155,9 @@ class User(UserMixin, Model):
         "market_id": None,
         "vendor_status": "active",       # pending | active | suspended (vendors only)
         "vendor_verified_at": None,
+        "is_price_flagged": False,       # flagged by the LGU for overpricing (shown to shoppers)
+        "price_flag_reason": None,
+        "price_flagged_at": None,
         "org_name": None,
         "division": None,
         "contact_person": None,
@@ -288,6 +291,8 @@ class Listing(Model):
         "prev_price": None,
         "stock_status": "in_stock",     # in_stock | low_stock | out_of_stock
         "product_id": None,             # optional link to a tracked commodity
+        "lgu_warning": None,            # overpricing notice sent by the LGU from Flagged Vendors
+        "lgu_warned_at": None,          # a later updated_at (vendor changed the price) clears it
         "updated_at": datetime.utcnow,
         "created_at": datetime.utcnow,
     }
@@ -366,5 +371,19 @@ class AuditLog(Model):
         "user_name": None,
         "action": None,
         "detail": None,
+        "created_at": datetime.utcnow,
+    }
+
+class Notification(Model):
+    collection = "notifications"
+    id_field = "notification_id"
+    defaults = {
+        "user_id": None,
+        "title": None,
+        "message": None,
+        "link": None,                   # in-app path opened when the notification is tapped
+        "icon": "bell",                 # FontAwesome icon name
+        "tone": "info",                 # info | good | warn | bad
+        "is_read": False,
         "created_at": datetime.utcnow,
     }

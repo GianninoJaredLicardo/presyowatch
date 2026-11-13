@@ -14,6 +14,7 @@ from utils.helpers import (
     market_price_board, refresh_alert_rules, role_required, vendor_stats,
 )
 from utils.spike_detection import create_report
+from utils.notifications import notify
 
 bp = Blueprint("resident", __name__)
 
@@ -330,6 +331,9 @@ def submit_feedback():
         rating=rating,
         comment=comment or None,
     ).save()
+    who = current_user.full_name or "A shopper"
+    notify(vendor_id, f"New {rating}-star review", f"{who}: {comment[:120]}" if comment else f"From {who}",
+           link="/vendor/feedback", icon="star", tone="good" if rating >= 4 else ("warn" if rating == 3 else "bad"))
 
     flash(f"Thanks! Your feedback for {vendor.business_name or vendor.full_name} has been sent.", "success")
     return redirect(url_for("resident.dashboard"))

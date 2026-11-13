@@ -66,6 +66,12 @@
     {% endif %}
   {% endwith %}
 
+  {% if show_bell and not hide_nav|default(false) and request.endpoint != 'notifications.index' %}
+  <a class="notif-bell" href="{{ url_for('notifications.index') }}" aria-label="Notifications{{ ' (' ~ unread_notifications ~ ' unread)' if unread_notifications }}">
+    <i class="fa-solid fa-bell"></i>
+    {% if unread_notifications %}<span class="count">{{ unread_notifications if unread_notifications < 100 else '99+' }}</span>{% endif %}
+  </a>
+  {% endif %}
   {% block content %}{% endblock %}
 </main>
 {% if is_admin %}</div></div>{% endif %}

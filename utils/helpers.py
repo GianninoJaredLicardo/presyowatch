@@ -193,8 +193,24 @@ def market_price_board(city=None, limit=5):
 
 def refresh_alert_rules(user_id):
     """Re-evaluate a resident's price alert rules against current verified prices and vendor listings."""
-    rules = PriceAlertRule.find(user_id=user_id)
+    return _evaluate_alert_rules(PriceAlertRule.find(user_id=user_id))
+
+
+def refresh_rules_for_product(product_id):
+    """Re-check every resident's alert rules for one product after its prices change."""
+    if not product_id:
+        return []
+    try:
+        return _evaluate_alert_rules(PriceAlertRule.find(product_id=product_id))
+    except Exception:
+        return []
+
+
+def _evaluate_alert_rules(rules):
+    from utils.notifications import notify  # local import: notifications imports models only
+
     since = date.today() - timedelta(days=14)
+    products = {}
     for rule in rules:
         prices = [
             float(r.price)
@@ -215,4 +231,13 @@ def refresh_alert_rules(user_id):
             rule.triggered_price = hit_price
             rule.triggered_at = datetime.utcnow() if triggered else None
             rule.save()
+            if triggered:
+                if rule.product_id not in products:
+                    products[rule.product_id] = Product.get(rule.product_id)
+                product = products[rule.product_id]
+                name = product.product_name if product else "A product you watch"
+                word = "dropped to" if rule.direction == "below" else "reached"
+                notify(rule.user_id, f"Price alert: {name}",
+                       f"{name} {word} ₱{hit_price:,.2f} (your alert: {rule.direction} ₱{float(rule.threshold):,.2f}).",
+                       link="/resident/alerts", icon="bell", tone="good" if rule.direction == "below" else "warn")
     return rules

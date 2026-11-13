@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Notifications — PresyoWatch{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mt-2">
+  <h4 class="page-title mb-0">Notifications</h4>
+  {% if items|selectattr('is_read', 'equalto', false)|list %}
+  <form method="POST" action="{{ url_for('notifications.read_all') }}">
+    <button class="btn-pale btn-sm-pw" type="submit"><i class="fa-solid fa-check-double"></i> Mark all read</button>
+  </form>
+  {% endif %}
+</div>
+
+<div class="pw-card mt-3 p-0 notif-list">
+  {% for n in items %}
+  <a class="notif-item {{ 'unread' if not n.is_read }} tone-{{ n.tone }}" href="{{ url_for('notifications.open_notification', notification_id=n.notification_id) }}">
+    <span class="notif-icon"><i class="fa-solid fa-{{ n.icon }}"></i></span>
+    <span class="notif-body">
+      <b>{{ n.title }}</b>
+      {% if n.message %}<span class="notif-msg">{{ n.message }}</span>{% endif %}
+      <small>{{ n.created_at|timeago }}</small>
+    </span>
+    {% if not n.is_read %}<span class="notif-dot" aria-label="Unread"></span>{% endif %}
+  </a>
+  {% else %}
+  <div class="empty-state"><i class="fa-regular fa-bell"></i>No notifications yet.</div>
+  {% endfor %}
+</div>
+{% endblock %}

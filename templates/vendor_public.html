@@ -8,6 +8,7 @@
   <div style="background:#c8dc9d;padding:14px 16px 18px">
     <div class="d-flex align-items-center gap-3 flex-wrap mb-3">
       {% if vendor.is_verified_vendor %}{{ verified() }}{% else %}<span class="pill gray">Not yet verified</span>{% endif %}
+      {% if vendor.is_price_flagged %}<span class="pill red"><i class="fa-solid fa-flag"></i> Flagged for overpricing</span>{% endif %}
       <span class="small text-secondary">{{ market.market_name if market else '' }}{% if vendor.business_address %}, {{ vendor.business_address }}{% endif %}</span>
     </div>
     <div class="stat-row c3">

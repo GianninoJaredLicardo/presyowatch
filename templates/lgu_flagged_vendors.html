@@ -8,6 +8,10 @@
 </div>
 
 <p class="text-muted small mb-3">This list shows vendors whose current listing prices exceed the standard DTI SRP baseline.</p>
+{% if not can_act %}
+<div class="note-box mb-3"><i class="fa-solid fa-circle-info"></i>
+  <div>View only. Warning, flagging or suspending vendors is handled by the LGU, which monitors the markets.</div></div>
+{% endif %}
 
 <div class="card p-3 shadow-sm">
   {% if flagged %}
@@ -28,11 +32,55 @@
           <tr>
             <td class="fw-semibold">{{ item.vendor_name }}</td>
             <td>{{ item.product_name }}</td>
-            <td class="text-end fw-bold">₱{{ "%.2f"|format(item.vendor_price) }}</td>
+            <td class="text-end fw-bold">₱{{ "%.2f"|format(item.vendor_price) }}
+              {% if item.prev_price and item.vendor_price > item.prev_price %}
+              <div class="small text-danger fw-normal" title="Raised from ₱{{ '%.2f'|format(item.prev_price) }}">
+                <i class="fa-solid fa-arrow-up"></i> from ₱{{ "%.2f"|format(item.prev_price) }}</div>
+              {% endif %}
+            </td>
             <td class="text-end text-muted">₱{{ "%.2f"|format(item.standard_price) }}</td>
             <td class="text-end text-danger fw-bold">+₱{{ "%.2f"|format(item.deviation) }}</td>
             <td class="text-end">
-              <a href="{{ url_for('lgu.manage', tab='vendors', q=item.vendor_name) }}" class="btn-pw btn-sm-pw" style="padding: 4px 10px; font-size: 0.75rem;">View Vendor</a>
+              <div class="d-flex gap-1 justify-content-end align-items-center flex-wrap">
+                {% if item.vendor_status == 'suspended' %}<span class="pill red">Suspended</span>{% endif %}
+                {% if item.is_price_flagged and not can_act %}<span class="pill red"><i class="fa-solid fa-flag"></i> Flagged</span>{% endif %}
+                {% if can_act %}
+                <a href="{{ url_for('lgu.manage', tab='vendors', q=item.vendor_name) }}" class="btn-pw-outline btn-sm-pw" style="padding: 4px 10px; font-size: 0.75rem;">View</a>
+                  {% if item.warned_at %}
+                    <span class="pill pending" title="Sent {{ item.warned_at|localtime }}. Clears when the vendor updates this listing.">Warned</span>
+                  {% else %}
+                    <form method="POST" action="{{ url_for('lgu.warn_vendor', listing_id=item.listing_id) }}" class="d-inline"
+                          data-vendor="{{ item.vendor_name }}" data-product="{{ item.product_name }}"
+                          onsubmit="var n = prompt('Send a price warning to ' + this.dataset.vendor + ' about ' + this.dataset.product + '.\nOptional note to include:', ''); if (n === null) return false; this.note.value = n; return true;">
+                      <input type="hidden" name="note">
+                      <button class="btn-pw btn-sm-pw" style="padding: 4px 10px; font-size: 0.75rem;"><i class="fa-solid fa-bell"></i> Warn</button>
+                    </form>
+                  {% endif %}
+                  {% if item.is_price_flagged %}
+                    <form method="POST" action="{{ url_for('lgu.unflag_vendor', vendor_id=item.vendor_id) }}" class="d-inline"
+                          data-vendor="{{ item.vendor_name }}" onsubmit="return confirm('Remove the overpricing flag from ' + this.dataset.vendor + '?')">
+                      <button class="btn-soft btn-sm-pw" style="padding: 4px 10px; font-size: 0.75rem;" title="Flagged for overpricing. Click to remove the flag."><i class="fa-solid fa-flag"></i> Unflag</button>
+                    </form>
+                  {% else %}
+                    <form method="POST" action="{{ url_for('lgu.flag_vendor', listing_id=item.listing_id) }}" class="d-inline"
+                          data-vendor="{{ item.vendor_name }}" data-product="{{ item.product_name }}"
+                          onsubmit="var n = prompt('Flag ' + this.dataset.vendor + ' for overpricing ' + this.dataset.product + '?\nShoppers will see an overpricing notice on this stall.\nOptional note:', ''); if (n === null) return false; this.note.value = n; return true;">
+                      <input type="hidden" name="note">
+                      <button class="btn-danger-soft btn-sm-pw" style="padding: 4px 10px; font-size: 0.75rem;"><i class="fa-solid fa-flag"></i> Flag</button>
+                    </form>
+                  {% endif %}
+                  {% if item.vendor_status == 'suspended' %}
+                    <form method="POST" action="{{ url_for('lgu.reactivate_vendor', vendor_id=item.vendor_id) }}" class="d-inline">
+                      <button class="btn-soft btn-sm-pw" style="padding: 4px 10px; font-size: 0.75rem;">Reactivate</button>
+                    </form>
+                  {% else %}
+                    <form method="POST" action="{{ url_for('lgu.suspend_vendor', vendor_id=item.vendor_id) }}" class="d-inline"
+                          data-vendor="{{ item.vendor_name }}" onsubmit="return confirm('Suspend ' + this.dataset.vendor + '? They will not be able to log in.')">
+                      <button class="btn-danger-soft btn-sm-pw" style="padding: 4px 10px; font-size: 0.75rem;">Suspend</button>
+                    </form>
+                  {% endif %}
+                {% endif %}
+              </div>
             </td>
           </tr>
           {% endfor %}

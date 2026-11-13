@@ -22,6 +22,25 @@
 </div>
 {% endif %}
 
+{% if u.is_price_flagged %}
+<div class="spike-card">
+  <div class="title"><i class="fa-solid fa-flag"></i> Your stall is flagged for overpricing</div>
+  <div class="small mt-1">{{ u.price_flag_reason }}. Shoppers see an overpricing notice on your stall and in search results.
+    Lower your prices to the standard price, then ask your LGU to remove the flag.</div>
+</div>
+{% endif %}
+
+{% for l in warnings %}
+<div class="spike-card">
+  <div class="title"><i class="fa-solid fa-triangle-exclamation"></i> Price warning from your LGU</div>
+  <div class="small mt-1">{{ l.lgu_warning }}</div>
+  <div class="d-flex justify-content-between align-items-center mt-2">
+    <small class="text-muted">{{ l.lgu_warned_at|localtime }}</small>
+    <a class="btn-pw btn-sm-pw" href="{{ url_for('vendor.listing_form', listing_id=l.listing_id) }}">Update price</a>
+  </div>
+</div>
+{% endfor %}
+
 <div class="stat-row c2 mb-3">
   <a class="btn-pw" href="{{ url_for('vendor.listing_form') }}"><i class="fa-solid fa-plus"></i> Add Listing</a>
   <a class="btn-pale" href="{{ url_for('vendor.bulk_prices') }}"><i class="fa-solid fa-pen"></i> Bulk Update</a>

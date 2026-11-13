@@ -49,6 +49,7 @@ def create_app():
     from routes.vendor import bp as vendor_bp
     from routes.lgu import bp as lgu_bp
     from routes.admin import bp as admin_bp
+    from routes.notifications import bp as notifications_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(public_bp)
@@ -56,6 +57,7 @@ def create_app():
     app.register_blueprint(vendor_bp, url_prefix="/vendor")
     app.register_blueprint(lgu_bp, url_prefix="/lgu")
     app.register_blueprint(admin_bp, url_prefix="/admin")
+    app.register_blueprint(notifications_bp, url_prefix="/notifications")
 
     app.jinja_env.filters["timeago"] = timeago
     app.jinja_env.filters["localtime"] = localtime
@@ -77,7 +79,16 @@ def create_app():
             pending_applications = sum(
                 1 for u in User.find(("role", "in", ["lgu_staff", "dti_da"])) if _is_pending_application(u)
             )
-        return {"nav_current_user": current_user, "nav_items": items, "pending_applications": pending_applications}
+        unread_notifications = 0
+        if group in ("resident", "vendor"):
+            from utils.notifications import unread_count
+            try:
+                unread_notifications = unread_count(current_user.user_id)
+            except Exception:
+                unread_notifications = 0
+        return {"nav_current_user": current_user, "nav_items": items, "pending_applications": pending_applications,
+                "unread_notifications": unread_notifications,
+                "show_bell": group in ("resident", "vendor")}
 
     return app
 

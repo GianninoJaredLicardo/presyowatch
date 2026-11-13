@@ -9,6 +9,7 @@ from flask_login import current_user
 from models import Listing, Market, PriceReport, Product, Review, ScanEvent, User
 from utils.helpers import vendor_stats
 from utils.qr_generator import generate_qr_bytes, market_price_search_url
+from utils.notifications import notify
 
 bp = Blueprint("public", __name__)
 
@@ -41,6 +42,7 @@ def price_search():
         results.append({
             "name": l.name, "category": l.category, "seller": vendor.business_name or vendor.full_name,
             "seller_id": vendor.user_id, "verified": vendor.is_verified_vendor,
+            "price_flagged": vendor.is_price_flagged,
             "market_id": vendor.market_id, "market": market.market_name if market else "",
             "city": market.city if market else vendor.city, "price": float(l.price), "unit": l.unit,
             "date": l.updated_at, "product_id": l.product_id,
@@ -121,6 +123,8 @@ def add_review(vendor_id):
             vendor_id=vendor_id, user_id=current_user.user_id,
             user_name=current_user.full_name, rating=rating, comment=comment[:500],
         ).save()
+        notify(vendor_id, f"New {rating}-star review", f"{current_user.full_name}: {comment[:120]}",
+               link="/vendor/feedback", icon="star", tone="good" if rating >= 4 else ("warn" if rating == 3 else "bad"))
         flash("Thanks for your feedback!", "success")
     return redirect(url_for("public.vendor_page", vendor_id=vendor_id))
 

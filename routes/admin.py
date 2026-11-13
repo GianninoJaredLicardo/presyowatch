@@ -8,6 +8,7 @@ from flask_login import login_required, current_user
 from models import User, PriceReport, Alert, Product, DtiSrp
 from routes.auth import CITIES
 from utils.helpers import log_action, read_name_fields
+from utils.notifications import notify
 
 bp = Blueprint("admin", __name__)
 
@@ -200,6 +201,9 @@ def verify_vendor(user_id):
     user.vendor_status = "active"
     user.vendor_verified_at = datetime.utcnow()
     user.save()
+    notify(user.user_id, "You're now a Verified vendor",
+           "Your Verified badge was approved. Shoppers will see it on your stall page.",
+           link="/vendor/profile", icon="certificate", tone="good")
     flash(f"{user.full_name} is now a verified vendor.", "success")
     return redirect(url_for("admin.users"))
 

@@ -22,7 +22,7 @@
 <div class="pw-card list-card">
   <div class="d-flex justify-content-between align-items-start gap-2">
     <div class="name">{{ v.business_name or v.full_name }}</div>
-    <div class="text-end d-flex flex-column gap-1 align-items-end">{{ status_pill(v.vendor_status) }}{% if v.is_verified_vendor %}{{ verified() }}{% endif %}</div>
+    <div class="text-end d-flex flex-column gap-1 align-items-end">{{ status_pill(v.vendor_status) }}{% if v.is_verified_vendor %}{{ verified() }}{% endif %}{% if v.is_price_flagged %}<span class="pill red" title="{{ v.price_flag_reason or '' }}"><i class="fa-solid fa-flag"></i> Overpricing</span>{% endif %}</div>
   </div>
   <div class="meta mb-2">{{ v.full_name }} - {{ m.market_name if m else '—' }}</div>
   <div class="d-flex gap-2 flex-wrap">
