@@ -1,4 +1,7 @@
-<div class="seg mt-3">
-  <a href="{{ url_for('lgu.manage', tab='vendors') }}" class="{{ 'active' if tab == 'vendors' }}">Vendors</a>
-  <a href="{{ url_for('lgu.manage', tab='reports') }}" class="{{ 'active' if tab == 'reports' }}">Reports</a>
+<div class="tabs mb-3" style="display: flex; gap: 8px; margin-bottom: 16px;">
+  {% if current_user.role == 'lgu_staff' %}
+    <a class="tab {{ 'active' if tab == 'vendors' }}" href="{{ url_for('lgu.manage', tab='vendors') }}" style="flex: 1; text-align: center; padding: 10px; border-radius: 8px; text-decoration: none; font-weight: 600; {{ 'background: #2E7D32; color: white;' if tab == 'vendors' else 'background: #f0f0f0; color: #333;' }}">Vendors</a>
+  {% endif %}
+  
+  <a class="tab {{ 'active' if tab == 'reports' }}" href="{{ url_for('lgu.manage', tab='reports') }}" style="flex: 1; text-align: center; padding: 10px; border-radius: 8px; text-decoration: none; font-weight: 600; {{ 'background: #2E7D32; color: white;' if tab == 'reports' else 'background: #f0f0f0; color: #333;' }}">Reports</a>
 </div>

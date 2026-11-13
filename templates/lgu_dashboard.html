@@ -1,12 +1,17 @@
 {% extends "base.html" %}
 {% from "_ui.html" import stat %}
-{% block title %}LGU Home — PresyoWatch{% endblock %}
+{% block title %}Dashboard — PresyoWatch{% endblock %}
 {% block content %}
 {% set u = nav_current_user %}
 
 <!-- Top Welcome Card -->
 <div class="pw-card hero-card mt-2">
-  <span class="pill">{{ plan.name|upper }}</span>
+  {% if u.role == 'lgu_staff' %}
+    <span class="pill">{{ plan.name|upper }}</span>
+  {% else %}
+    <span class="pill" style="background:#1565C0;">DTI / DA AGENCY</span>
+  {% endif %}
+  
   <div class="eyebrow">Welcome back,</div>
   <h4>{{ u.org_name or u.full_name }}</h4>
   <div class="sub"><i class="fa-solid fa-landmark"></i> {{ u.division or ('Cebu City' if not u.city else u.city) }}</div>
@@ -38,7 +43,7 @@
 <div class="pw-card text-center"><b style="color:var(--title)">No active price spikes. 🎉</b></div>
 {% endif %}
 
-<!-- Flagged Vendors Button -->
+<!-- Flagged Vendors Button (Visible to Both) -->
 <div class="mt-3 mb-3">
   <a href="{{ url_for('lgu.flagged_vendors') }}" class="btn-pw w-100" style="background: #D32F2F; border-color: #D32F2F; color: white; padding: 14px; border-radius: 12px; font-weight: 600; display: block; text-decoration: none; text-align: center; box-shadow: 0 4px 12px rgba(211, 47, 47, 0.2);">
     <i class="fa-solid fa-flag"></i> View Flagged Vendors

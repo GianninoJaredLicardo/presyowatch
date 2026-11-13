@@ -4,6 +4,7 @@ import uuid
 import zipfile
 from collections import Counter, defaultdict
 from datetime import date, datetime, timedelta
+from functools import wraps
 
 from flask import (
     Blueprint, render_template, redirect, url_for, flash, request, send_file, abort, current_app
@@ -21,6 +22,15 @@ from utils.report_generator import build_csv_report, build_pdf_report, build_xls
 
 bp = Blueprint("lgu", __name__)
 lgu_only = role_required("lgu_staff", "dti_da", "admin")
+
+# NEW: Decorator for LGU-only actions (blocks DTI)
+def lgu_admin_only(f):
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        if not current_user.is_authenticated or current_user.role != "lgu_staff":
+            abort(403)
+        return f(*args, **kwargs)
+    return wrapper
 
 OPEN_ALERT = ("open", "acknowledged", "escalated")
 WEEKDAYS = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
@@ -225,12 +235,10 @@ def stats():
 @bp.route("/flagged-vendors")
 @lgu_only
 def flagged_vendors():
-    """List vendors whose prices exceed the DTI SRP."""
     listings = Listing.all()
     vendors = {v.user_id: v for v in User.find(role="vendor")}
     products = Product.index()
     
-    # Get the latest SRP for each product
     srps = {}
     for srp in DtiSrp.all():
         current = srps.get(srp.product_id)
@@ -258,7 +266,7 @@ def flagged_vendors():
     return render_template("lgu_flagged_vendors.html", flagged=flagged)
 
 
-# ---- subscription ---------------------------------------------------------------
+# ---- subscription (LGU ADMIN ONLY) -------------------------------------------------
 def _subscription():
     sub = Subscription.first(user_id=current_user.user_id)
     if sub is None:
@@ -281,7 +289,7 @@ def _charge(plan_key, note=""):
 
 
 @bp.route("/subscription")
-@lgu_only
+@lgu_admin_only  # <--- DTI CANNOT ACCESS THIS
 def subscription():
     sub = _subscription()
     plan = PLANS[sub.plan]
@@ -309,7 +317,7 @@ def subscription():
 
 
 @bp.route("/subscription/renew", methods=["POST"])
-@lgu_only
+@lgu_admin_only
 def renew_subscription():
     sub = _subscription()
     plan = PLANS[sub.plan]
@@ -326,7 +334,7 @@ def renew_subscription():
 
 
 @bp.route("/subscription/plan", methods=["POST"])
-@lgu_only
+@lgu_admin_only
 def change_plan():
     key = request.form.get("plan")
     if key not in PLANS:
@@ -345,7 +353,7 @@ def change_plan():
 
 
 @bp.route("/subscription/payment", methods=["POST"])
-@lgu_only
+@lgu_admin_only
 def update_payment():
     kind = request.form.get("payment_type")
     labels = {"card": "Card", "gcash": "GCash", "maya": "Maya", "bank": "Bank Transfer"}
@@ -367,7 +375,7 @@ def update_payment():
 
 
 @bp.route("/subscription/cancel", methods=["POST"])
-@lgu_only
+@lgu_admin_only
 def cancel_subscription():
     sub = _subscription()
     sub.status = "cancelled"
@@ -379,9 +387,9 @@ def cancel_subscription():
     return redirect(url_for("lgu.subscription"))
 
 
-# ---- manage: vendors + reports ---------------------------------------------------
+# ---- manage: vendors + reports (LGU ADMIN ONLY) --------------------------------------
 @bp.route("/manage")
-@lgu_only
+@lgu_admin_only  # <--- DTI CANNOT ACCESS THIS
 def manage():
     tab = request.args.get("tab", "vendors")
     if tab == "reports":
@@ -454,19 +462,19 @@ def _vendor_action(vendor_id, message, **changes):
 
 
 @bp.route("/vendors/<int:vendor_id>/suspend", methods=["POST"])
-@lgu_only
+@lgu_admin_only
 def suspend_vendor(vendor_id):
     return _vendor_action(vendor_id, "suspended", vendor_status="suspended", is_active_flag=False)
 
 
 @bp.route("/vendors/<int:vendor_id>/reactivate", methods=["POST"])
-@lgu_only
+@lgu_admin_only
 def reactivate_vendor(vendor_id):
     return _vendor_action(vendor_id, "reactivated", vendor_status="active", is_active_flag=True)
 
 
 @bp.route("/vendors/<int:vendor_id>/approve", methods=["POST"])
-@lgu_only
+@lgu_admin_only
 def approve_vendor(vendor_id):
     return _vendor_action(vendor_id, "badge approved", vendor_status="active", is_active_flag=True,
                           is_verified_vendor=True, vendor_verified_at=datetime.utcnow())

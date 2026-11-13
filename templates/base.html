@@ -73,9 +73,14 @@
 {% if nav_items and not hide_nav|default(false) and not is_admin %}
 <nav class="bottom-nav">
   {% for item in nav_items %}
-  <a href="{{ url_for(item.endpoint) }}" class="{{ 'active' if item.active else '' }}">
-    <i class="fa-solid fa-{{ item.icon }}"></i>{{ item.label }}
-  </a>
+  
+    {# LOGIC TO HIDE PLAN & MANAGE TABS FROM DTI/DA #}
+    {% if nav_current_user.role == 'lgu_staff' or item.endpoint not in ['lgu.subscription', 'lgu.manage'] %}
+      <a href="{{ url_for(item.endpoint) }}" class="{{ 'active' if item.active else '' }}">
+        <i class="fa-solid fa-{{ item.icon }}"></i>{{ item.label }}
+      </a>
+    {% endif %}
+    
   {% endfor %}
 </nav>
 {% endif %}

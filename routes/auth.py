@@ -19,6 +19,7 @@ REGISTER_ROLES = {"resident": "resident", "vendor": "vendor", "lgu": "lgu_staff"
 PORTALS = {
     "public": {"roles": ("resident", "vendor"), "endpoint": "auth.login", "template": "login.html"},
     "staff": {"roles": ("lgu_staff", "dti_da"), "endpoint": "auth.staff_login", "template": "staff_login.html"},
+    "dti": {"roles": ("dti_da",), "endpoint": "auth.dti_login", "template": "dti_login.html"}, # NEW
     "admin": {"roles": ("admin",), "endpoint": "auth.admin_login", "template": "admin_login.html"},
 }
 CITIES = ("Cebu City", "Lapu-Lapu City")
@@ -313,3 +314,8 @@ def forgot_password():
         flash("If your email is registered, you will receive a reset link.", "info")
         return redirect(url_for("auth.login"))
     return render_template("forgot_password.html")
+
+@bp.route("/dti/login", methods=["GET", "POST"])
+def dti_login():
+    """Dedicated login page for DTI/DA staff."""
+    return _login("dti")

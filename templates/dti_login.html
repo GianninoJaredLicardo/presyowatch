@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% from "_ui.html" import brand %}
+{% set hide_nav = true %}
+{% block title %}DTI / DA Login — PresyoWatch{% endblock %}
+{% block content %}
+
+<div class="text-center mt-5 mb-3">
+  <span class="pill-note" style="background: #1565C0; color: white;">
+    <i class="fa-solid fa-building-columns"></i> DTI / DA Portal
+  </span>
+  <h1 class="auth-title mt-3">DTI / DA Login</h1>
+  <div class="auth-sub">For National Government Agencies</div>
+</div>
+
+<form method="POST" class="pw-card white auth-card">
+  {{ brand(80) }}
+  
+  <div class="field mt-3">
+    <label class="form-label">Work Email</label>
+    <input class="input-pw" type="email" name="email" placeholder="dti@example.gov.ph" required>
+  </div>
+  
+  <div class="field">
+    <label class="form-label">Password</label>
+    <input class="input-pw" type="password" name="password" placeholder="••••••••" required>
+  </div>
+
+  <button class="btn-pw btn-block btn-submit mt-3" type="submit" style="background: #1565C0;">
+    <span>Log in to DTI Portal</span>
+  </button>
+</form>
+
+<div class="auth-foot mt-4 text-center">
+  Are you an LGU Staff? <a href="{{ url_for('auth.staff_login') }}">Go to LGU Portal</a>
+</div>
+
+{% endblock %}
