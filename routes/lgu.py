@@ -230,6 +230,7 @@ def flagged_vendors():
     vendors = {v.user_id: v for v in User.find(role="vendor")}
     products = Product.index()
     
+    # Get the latest SRP for each product
     srps = {}
     for srp in DtiSrp.all():
         current = srps.get(srp.product_id)
