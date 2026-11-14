@@ -25,6 +25,7 @@
     <div class="text-end d-flex flex-column gap-1 align-items-end">
       {{ status_pill(v.vendor_status) }}
       {% if v.is_verified_vendor %}{{ verified() }}{% endif %}
+      {% if flagged_items and flagged_items[v.user_id] %}<span class="pill red"><i class="fa-solid fa-flag"></i> {{ flagged_items[v.user_id] }} flagged item{{ 's' if flagged_items[v.user_id] != 1 }}</span>{% endif %}
     </div>
   </div>
   <div class="meta mb-2">{{ v.full_name }} - {{ m.market_name if m else '—' }}</div>
