@@ -32,7 +32,6 @@ def lgu_admin_only(f):
         return f(*args, **kwargs)
     return wrapper
 
-OPEN_ALERT = ("open", "acknowledged", "escalated")
 WEEKDAYS = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
 
 
@@ -41,8 +40,9 @@ def _users_for(reports):
 
 
 def _open_alerts():
+    # FIX: Make the query forgiving. Show anything that isn't explicitly resolved.
     return sorted(
-        (a for a in Alert.all() if a.status in OPEN_ALERT),
+        (a for a in Alert.all() if a.status not in ("resolved", "dismissed", None)),
         key=lambda a: a.created_at, reverse=True,
     )
 
@@ -78,7 +78,7 @@ def dashboard():
         alert_count=len(open_alerts),
         vendor_count=len(vendors),
         verified_count=PriceReport.count(status="verified"),
-        spike=open_alerts[0] if open_alerts else None,
+        spikes=open_alerts,  # <--- FIX: Passing the list instead of a single item
         events=events[:5],
     )
 
@@ -240,7 +240,6 @@ def srp_management():
         srp_price = request.form.get("srp_price", type=float)
         
         if product_id and srp_price and srp_price > 0:
-            # Save the new SRP
             DtiSrp(
                 product_id=product_id,
                 srp_price=srp_price,
@@ -248,7 +247,6 @@ def srp_management():
                 source="Manual DTI Update"
             ).save()
             
-            # Create the Update Log
             product = Product.get(product_id)
             log_action(current_user, "srp_updated", f"Updated SRP for {product.product_name if product else 'Unknown'} to ₱{srp_price}")
             

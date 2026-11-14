@@ -1,13 +1,5 @@
 """
 Automated Price Spike Detection module.
-
-Implements Specific Objective 2.4 from the PresyoWatch capstone proposal:
-a rule-based algorithm that flags a newly submitted price report when it is
-unusually high compared to (a) the recent verified market average for that
-product/city, and (b) the official DTI Suggested Retail Price (SRP).
-
-A report is flagged when it exceeds either baseline by more than
-`Config.SPIKE_THRESHOLD_PERCENT` (default 20%).
 """
 from datetime import date, timedelta
 
@@ -17,11 +9,13 @@ from utils.helpers import get_settings
 
 
 def get_recent_average(product_id, city, window_days, exclude_report_id=None):
-    """Average of VERIFIED prices for a product within a city over the recent window."""
+    """Average of prices for a product within a city over the recent window."""
     since = date.today() - timedelta(days=window_days)
     markets = Market.index()
     prices = []
-    for r in PriceReport.find(product_id=product_id, status="verified"):
+    
+    # FIX: Look at ALL reports, not just "verified" ones, so we have a baseline
+    for r in PriceReport.find(product_id=product_id):
         market = markets.get(r.market_id)
         if (
             r.report_date >= since
@@ -42,10 +36,6 @@ def get_latest_srp(product_id):
 
 
 def evaluate_report(report, threshold_percent, window_days):
-    """
-    Compare a PriceReport's price against the recent market average and the
-    DTI SRP baseline. Returns (is_spike, spike_percent, reason, baseline).
-    """
     price = float(report.price)
     market = Market.get(report.market_id)
 
@@ -54,10 +44,16 @@ def evaluate_report(report, threshold_percent, window_days):
     )
     srp = get_latest_srp(report.product_id)
 
-    baseline = recent_avg if recent_avg else srp
-    baseline_label = "recent market average" if recent_avg else "DTI SRP"
+    # Use whichever baseline is available. If both exist, use the lower one to be safer.
+    if recent_avg is not None and srp is not None:
+        baseline = min(recent_avg, srp)
+    else:
+        baseline = recent_avg if recent_avg is not None else srp
+        
+    baseline_label = "recent market average" if recent_avg is not None else "DTI SRP"
 
     if baseline is None or baseline <= 0:
+        # If there's absolutely no baseline, we cannot determine a spike.
         return False, None, None, None
 
     percent_over = ((price - baseline) / baseline) * 100
@@ -73,10 +69,6 @@ def evaluate_report(report, threshold_percent, window_days):
 
 
 def process_new_report(report, threshold_percent, window_days):
-    """
-    Run spike detection on a freshly saved report (it must already have a
-    report_id), update its flags, and create an Alert for LGU staff when needed.
-    """
     is_spike, spike_percent, reason, baseline = evaluate_report(report, threshold_percent, window_days)
 
     report.is_spike = is_spike
@@ -85,6 +77,7 @@ def process_new_report(report, threshold_percent, window_days):
     if is_spike:
         report.status = "flagged"
         severity = "high" if spike_percent >= 50 else "medium"
+        
         Alert(
             report_id=report.report_id,
             message=reason,
@@ -94,6 +87,7 @@ def process_new_report(report, threshold_percent, window_days):
             reported_price=float(report.price),
             baseline=round(baseline, 2),
             spike_percent=spike_percent,
+            status="open"  
         ).save()
 
     report.save()
@@ -101,7 +95,6 @@ def process_new_report(report, threshold_percent, window_days):
 
 
 def create_report(user_id, product_id, market_id, price, report_date, photo_path=None, vendor_name=None):
-    """Save a new price report and run spike detection on it. Returns (report, is_spike)."""
     report = PriceReport(
         user_id=user_id,
         product_id=product_id,

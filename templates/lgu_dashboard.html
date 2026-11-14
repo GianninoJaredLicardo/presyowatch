@@ -5,13 +5,32 @@
 {% set u = nav_current_user %}
 
 <!-- Top Welcome Card -->
-<div class="pw-card hero-card mt-2">
-  {% if u.role == 'lgu_staff' %}
-    <span class="pill">{{ plan.name|upper }}</span>
-  {% else %}
-    <span class="pill" style="background:#1565C0;">DTI / DA AGENCY</span>
-  {% endif %}
+<div class="pw-card hero-card mt-2 position-relative">
   
+  <!-- Top Right Controls: Bell + Plan Pill -->
+  <div class="position-absolute top-0 end-0 m-3 d-flex align-items-center gap-2" style="z-index: 10;">
+    
+    <!-- Notification Bell Icon (Opens Modal) -->
+    <button type="button" data-bs-toggle="modal" data-bs-target="#notificationModal" class="text-white d-flex align-items-center justify-content-center border-0" 
+       style="background: #0b3d20; border: 2px solid #F4C430 !important; width: 32px; height: 32px; border-radius: 50%; box-shadow: 0 2px 6px rgba(0,0,0,0.2); cursor: pointer;" 
+       title="View Notifications">
+      <i class="fa-solid fa-bell" style="font-size: 0.9rem; color: #F4C430;"></i>
+      {% if alert_count > 0 %}
+      <span class="position-absolute top-0 start-100 translate-middle p-1 bg-danger border border-light rounded-circle">
+        <span class="visually-hidden">New alerts</span>
+      </span>
+      {% endif %}
+    </button>
+    
+    <!-- Plan Pill -->
+    {% if u.role == 'lgu_staff' %}
+      <span class="pill position-static m-0" style="background: #F4C430; color: #000; font-weight: bold; font-size: 0.75rem;">{{ plan.name|upper }}</span>
+    {% else %}
+      <span class="pill position-static m-0" style="background:#1565C0; font-size: 0.75rem;">DTI / DA</span>
+    {% endif %}
+    
+  </div>
+
   <div class="eyebrow">Welcome back,</div>
   <h4>{{ u.org_name or u.full_name }}</h4>
   <div class="sub"><i class="fa-solid fa-landmark"></i> {{ u.division or ('Cebu City' if not u.city else u.city) }}</div>
@@ -24,25 +43,30 @@
   </div>
 </div>
 
-<!-- Price Spike Alert -->
-{% if spike %}
-<div class="spike-card center">
-  <div class="title">Price Spike Detected!</div>
-  <p>{{ spike.product_name }} at {{ spike.market_name }}: ₱{{ spike.reported_price|peso }}<br>
-     — {{ '%.0f'|format(spike.spike_percent or 0) }}% above normal ({{ spike.status }})</p>
-  <div class="d-flex justify-content-around">
-    {% if spike.status == 'open' %}
-    <form method="POST" action="{{ url_for('lgu.acknowledge_alert', alert_id=spike.alert_id) }}"><button class="btn-yellow btn-sm-pw" type="submit">Acknowledge</button></form>
-    {% else %}
-    <form method="POST" action="{{ url_for('lgu.resolve_alert', alert_id=spike.alert_id) }}"><button class="btn-yellow btn-sm-pw" type="submit">Resolve</button></form>
-    {% endif %}
-    <a class="btn-red btn-sm-pw" href="{{ url_for('lgu.report_detail', report_id=spike.report_id) }}">View Details</a>
+<!-- Price Spike Alerts (Module 5) -->
+{% if spikes %}
+  {% for spike in spikes %}
+  <div class="spike-card center mb-3">
+    <div class="title">Price Spike Detected!</div>
+    <p>{{ spike.product_name }} at {{ spike.market_name }}: ₱{{ spike.reported_price|peso }}<br>
+       — {{ '%.0f'|format(spike.spike_percent or 0) }}% above normal ({{ spike.status }})</p>
+    <div class="d-flex justify-content-around">
+      {% if spike.status == 'open' %}
+      <form method="POST" action="{{ url_for('lgu.acknowledge_alert', alert_id=spike.alert_id) }}">
+        <button class="btn-yellow btn-sm-pw" type="submit">Acknowledge</button>
+      </form>
+      {% else %}
+      <form method="POST" action="{{ url_for('lgu.resolve_alert', alert_id=spike.alert_id) }}">
+        <button class="btn-yellow btn-sm-pw" type="submit">Resolve</button>
+      </form>
+      {% endif %}
+      <a class="btn-red btn-sm-pw" href="{{ url_for('lgu.report_detail', report_id=spike.report_id) }}">View Details</a>
+    </div>
   </div>
-</div>
+  {% endfor %}
 {% else %}
 <div class="pw-card text-center"><b style="color:var(--title)">No active price spikes. 🎉</b></div>
 {% endif %}
-
 
 <!-- Flagged Vendors Button -->
 <div class="mt-3 mb-3">
@@ -51,7 +75,7 @@
   </a>
 </div>
 
-<!-- DTI SRP Management Button (NEW) -->
+<!-- DTI SRP Management Button -->
 <div class="mt-2 mb-3">
   <a href="{{ url_for('lgu.srp_management') }}" class="btn-pw-outline w-100" style="padding: 12px; border-radius: 12px; font-weight: 600; display: block; text-decoration: none; text-align: center; color: #0D5C36; border: 2px solid #0D5C36;">
     <i class="fa-solid fa-tags"></i> Manage DTI SRP Data
@@ -59,15 +83,50 @@
 </div>
 
 <!-- Recent Activity -->
-<h5 class="page-title mt-3">Recent Activity</h5>
-<div class="pw-card tint">
-  {% for text, when in events %}
-  <div class="py-2 border-bottom border-light">
-    <div class="fw-semibold">{{ text }}</div>
-    <small class="fst-italic text-muted">{{ when|timeago }}</small>
+<div id="recent-activity" class="mt-4 pt-2">
+  <h5 class="page-title">Recent Activity</h5>
+  <div class="pw-card tint">
+    {% for text, when in events %}
+    <div class="py-2 border-bottom border-light">
+      <div class="fw-semibold">{{ text }}</div>
+      <small class="fst-italic text-muted">{{ when|timeago }}</small>
+    </div>
+    {% else %}
+    <div class="text-muted text-center py-3">No recent activity.</div>
+    {% endfor %}
   </div>
-  {% else %}
-  <div class="text-muted text-center py-3">No recent activity.</div>
-  {% endfor %}
 </div>
+
+<!-- NOTIFICATION MODAL (The Popup) -->
+<div class="modal fade" id="notificationModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content" style="border-radius: 16px; border: none;">
+      <div class="modal-header border-0 pb-0">
+        <h5 class="modal-title fw-bold text-dark"><i class="fa-solid fa-bell text-warning"></i> Notifications</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        {% if events %}
+          <div class="list-group list-group-flush">
+          {% for text, when in events %}
+            <div class="list-group-item px-0 py-3">
+              <div class="fw-semibold text-dark">{{ text }}</div>
+              <small class="text-muted fst-italic">{{ when|timeago }}</small>
+            </div>
+          {% endfor %}
+          </div>
+        {% else %}
+          <div class="text-center text-muted py-4">
+            <i class="fa-regular fa-bell-slash fs-2 mb-2"></i>
+            <p>No new notifications.</p>
+          </div>
+        {% endif %}
+      </div>
+      <div class="modal-footer border-0 pt-0">
+        <button type="button" class="btn-pw w-100" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 {% endblock %}
