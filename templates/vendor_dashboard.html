@@ -47,6 +47,16 @@
   <a class="btn-pale" href="{{ url_for('vendor.bulk_prices') }}"><i class="fa-solid fa-pen"></i> Bulk Update</a>
 </div>
 
+<!-- NEW: Price Monitoring & Visualization access for Vendors -->
+<div class="stat-row c2 mb-3">
+  <a class="btn-pw-outline" href="{{ url_for('public.price_search') }}" style="text-align: center;">
+    <i class="fa-solid fa-magnifying-glass"></i> Search Market
+  </a>
+  <a class="btn-pw-outline" href="{{ url_for('resident.price_history') }}" style="text-align: center;">
+    <i class="fa-solid fa-chart-line"></i> Market Trends
+  </a>
+</div>
+
 <h5 class="page-title sm">Needs Attention</h5>
 <div class="pw-card tint">
   {% for l in needs_attention %}

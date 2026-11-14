@@ -13,7 +13,14 @@
 </form>
 
 <div class="pw-card white"><canvas id="priceChart" height="220"></canvas></div>
-<a class="btn-pale btn-block" href="{{ url_for('resident.dashboard') }}">&larr; Back to Home</a>
+
+<!-- Smart Back Button -->
+{% if current_user.role == 'vendor' %}
+  <a class="btn-pale btn-block" href="{{ url_for('vendor.dashboard') }}">&larr; Back to Home</a>
+{% else %}
+  <a class="btn-pale btn-block" href="{{ url_for('resident.dashboard') }}">&larr; Back to Home</a>
+{% endif %}
+
 {% endblock %}
 
 {% block scripts %}

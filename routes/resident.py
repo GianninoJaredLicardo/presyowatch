@@ -6,7 +6,7 @@ from datetime import date, datetime, timedelta
 from flask import (
     Blueprint, render_template, request, redirect, url_for, flash, current_app, jsonify
 )
-from flask_login import current_user
+from flask_login import current_user, login_required
 from werkzeug.utils import secure_filename
 
 from models import Alert, Market, PriceAlertRule, PriceReport, Product, Review, User
@@ -73,10 +73,8 @@ def dashboard():
     )
 
     # ---- Build recent activity feed ----
-    # Each event: (icon, text, time, key). The key identifies the item so it can be dismissed.
     events = []
 
-    # Price report events
     for r in my_reports:
         name = r.commodity_name if r.commodity_name else (
             products[r.product_id].product_name if r.product_id in products else "a commodity"
@@ -91,7 +89,6 @@ def dashboard():
         elif r.status == "flagged" and r.created_at:
             events.append(("alert", f"Your report on {name} was flagged for review", r.created_at, key))
 
-    # Feedback events
     vendor_cache = {}
     for rev in my_reviews:
         if rev.vendor_id not in vendor_cache:
@@ -105,7 +102,6 @@ def dashboard():
             f"review:{rev.review_id}",
         ))
 
-    # Alert rules triggered
     for rule in rules:
         if rule.is_triggered and rule.triggered_at and rule.product_id in products:
             word = "below" if rule.direction == "below" else "above"
@@ -116,7 +112,6 @@ def dashboard():
                 f"rule:{rule.rule_id}:{rule.triggered_at:%Y%m%d%H%M%S}",
             ))
 
-    # New verified vendors in the resident's city
     for v in User.find(role="vendor", is_verified_vendor=True):
         if v.vendor_verified_at and (not current_user.city or v.city == current_user.city):
             events.append((
@@ -126,12 +121,10 @@ def dashboard():
                 f"vendor:{v.user_id}",
             ))
 
-    # Drop what the resident cleared or dismissed
     cleared_at = current_user.activity_cleared_at
     hidden = set(current_user.hidden_activity or [])
     events = [e for e in events if e[3] not in hidden and not (cleared_at and e[2] <= cleared_at)]
     events.sort(key=lambda e: e[2], reverse=True)
-
 
     return render_template(
         "resident_dashboard.html",
@@ -150,12 +143,11 @@ MAX_HIDDEN_ACTIVITY = 100
 @bp.route("/activity/dismiss", methods=["POST"])
 @resident_only
 def dismiss_activity():
-    """Hide one item from Recent Activity (the X button)."""
     key = request.form.get("key", "").strip()[:80]
     if key:
         hidden = [k for k in (current_user.hidden_activity or []) if k != key]
         hidden.append(key)
-        current_user.hidden_activity = hidden[-MAX_HIDDEN_ACTIVITY:]  # keep storage small
+        current_user.hidden_activity = hidden[-MAX_HIDDEN_ACTIVITY:]
         current_user.save()
     return redirect(url_for("resident.dashboard") + "#recent-activity")
 
@@ -163,9 +155,8 @@ def dismiss_activity():
 @bp.route("/activity/clear", methods=["POST"])
 @resident_only
 def clear_activity():
-    """Hide everything currently in Recent Activity. Reports, reviews and alerts are not deleted."""
     current_user.activity_cleared_at = datetime.utcnow()
-    current_user.hidden_activity = []  # everything is covered by the clear time, so free the stored keys
+    current_user.hidden_activity = []
     current_user.save()
     flash("Recent activity cleared.", "success")
     return redirect(url_for("resident.dashboard") + "#recent-activity")
@@ -371,7 +362,6 @@ def scan_qr():
 @bp.route("/feedback/submit", methods=["POST"])
 @resident_only
 def submit_feedback():
-    """Handle feedback submitted from the resident dashboard home."""
     vendor_id = request.form.get("vendor_id", type=int)
     rating = request.form.get("rating", type=int)
     comment = request.form.get("comment", "").strip()[:500]
@@ -400,16 +390,18 @@ def submit_feedback():
     return redirect(url_for("resident.dashboard"))
 
 
+# ---- Allows Vendors to view charts too ----
 @bp.route("/prices/history")
-@resident_only
+@login_required
 def price_history():
     product_id = request.args.get("product_id", type=int)
     products = sorted(Product.all(), key=lambda p: p.product_name)
     return render_template("price_history.html", products=products, selected_product=product_id)
 
 
+# ---- CHANGED: Allows Vendors to fetch chart data too ----
 @bp.route("/api/prices/history-data")
-@resident_only
+@login_required
 def price_history_data():
     product_id = request.args.get("product_id", type=int)
     days = request.args.get("days", 30, type=int)
