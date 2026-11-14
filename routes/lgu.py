@@ -39,7 +39,6 @@ def _users_for(reports):
 
 
 def _open_alerts():
-    # Show anything that isn't resolved or dismissed
     return sorted(
         (a for a in Alert.all() if a.status not in ("resolved", "dismissed", None)),
         key=lambda a: a.created_at, reverse=True,
@@ -301,6 +300,23 @@ def flagged_vendors():
     return render_template("lgu_flagged_vendors.html", flagged=flagged)
 
 
+@bp.route("/flagged-vendors/<int:vendor_id>/warn", methods=["POST"])
+@lgu_only
+def warn_vendor(vendor_id):
+    vendor = User.get_or_404(vendor_id)
+    if vendor.role != "vendor":
+        abort(404)
+        
+    log_action(
+        current_user, 
+        "vendor_warned", 
+        f"Sent overpricing warning to {vendor.business_name or vendor.full_name}"
+    )
+    
+    flash(f"Warning sent to {vendor.business_name or vendor.full_name}.", "success")
+    return redirect(url_for("lgu.flagged_vendors"))
+
+
 # ---- subscription -------------------------------------------------
 def _subscription():
     sub = Subscription.first(user_id=current_user.user_id)
@@ -519,7 +535,6 @@ def _alert_action(alert_id, status, label):
     alert = Alert.get_or_404(alert_id)
     alert.status = status
     
-    # If it is escalated, we do NOT mark it as resolved. We want DTI to see it.
     if status == "resolved":
         alert.is_resolved = True
         alert.resolved_by = current_user.user_id

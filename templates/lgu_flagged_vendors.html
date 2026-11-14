@@ -2,99 +2,57 @@
 {% block title %}Flagged Vendors — PresyoWatch{% endblock %}
 {% block content %}
 
-<div class="d-flex justify-content-between align-items-center mt-3 mb-3">
-  <h4 class="page-title mb-0"><i class="fa-solid fa-triangle-exclamation"></i> Flagged Vendors</h4>
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h4 class="page-title mb-0"><i class="fa-solid fa-triangle-exclamation text-danger"></i> Flagged Vendors</h4>
   <a href="{{ url_for('lgu.dashboard') }}" class="btn-pw-outline btn-sm-pw">Back to Dashboard</a>
 </div>
 
-<p class="text-muted small mb-3">This list shows vendors whose current listing prices exceed the standard DTI SRP baseline.</p>
-{% if not can_act %}
-<div class="note-box mb-3"><i class="fa-solid fa-circle-info"></i>
-  <div>View only. Warning, flagging or suspending vendors is handled by the LGU, which monitors the markets.</div></div>
-{% endif %}
+<p class="text-muted small">This list shows vendors whose current listing prices exceed the standard DTI SRP baseline.</p>
 
-<div class="card p-3 shadow-sm">
-  {% if flagged %}
-    <div class="table-responsive">
-      <table class="table table-sm align-middle">
-        <thead class="table-light">
-          <tr>
-            <th>Vendor Name</th>
-            <th>Commodity</th>
-            <th class="text-end">Vendor Price</th>
-            <th class="text-end">Standard Price (SRP)</th>
-            <th class="text-end text-danger">Overprice Amount</th>
-            <th class="text-end">Action</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for item in flagged %}
-          <tr>
-            <td class="fw-semibold">{{ item.vendor_name }}</td>
-            <td>{{ item.product_name }}</td>
-            <td class="text-end fw-bold">₱{{ "%.2f"|format(item.vendor_price) }}
-              {% if item.prev_price and item.vendor_price > item.prev_price %}
-              <div class="small text-danger fw-normal" title="Raised from ₱{{ '%.2f'|format(item.prev_price) }}">
-                <i class="fa-solid fa-arrow-up"></i> from ₱{{ "%.2f"|format(item.prev_price) }}</div>
-              {% endif %}
-            </td>
-            <td class="text-end text-muted">₱{{ "%.2f"|format(item.standard_price) }}</td>
-            <td class="text-end fw-bold">{% if item.deviation > 0 %}<span class="text-danger">+₱{{ "%.2f"|format(item.deviation) }}</span>{% else %}<span class="text-success" title="Now at or below SRP — you can remove the flag">Within SRP</span>{% endif %}</td>
-            <td class="text-end">
-              <div class="d-flex gap-1 justify-content-end align-items-center flex-wrap">
-                {% if item.vendor_status == 'suspended' %}<span class="pill red">Suspended</span>{% endif %}
-                {% if item.is_price_flagged and not can_act %}<span class="pill red"><i class="fa-solid fa-flag"></i> Flagged</span>{% endif %}
-                {% if can_act %}
-                <a href="{{ url_for('lgu.manage', tab='vendors', q=item.vendor_name) }}" class="btn-pw-outline btn-xs-pw">View</a>
-                  {% if item.warned_at %}
-                    <span class="pill pending" title="Sent {{ item.warned_at|localtime }}. Clears when the vendor updates this listing.">Warned</span>
-                  {% else %}
-                    <form method="POST" action="{{ url_for('lgu.warn_vendor', listing_id=item.listing_id) }}" class="d-inline"
-                          data-vendor="{{ item.vendor_name }}" data-product="{{ item.product_name }}"
-                          onsubmit="var n = prompt('Send a price warning to ' + this.dataset.vendor + ' about ' + this.dataset.product + '.\nOptional note to include:', ''); if (n === null) return false; this.note.value = n; return true;">
-                      <input type="hidden" name="note">
-                      <button class="btn-pw btn-xs-pw"><i class="fa-solid fa-bell"></i> Warn</button>
-                    </form>
-                  {% endif %}
-                  {% if item.is_price_flagged %}
-                    <form method="POST" action="{{ url_for('lgu.unflag_listing', listing_id=item.listing_id) }}" class="d-inline"
-                          data-vendor="{{ item.vendor_name }}" data-product="{{ item.product_name }}"
-                          onsubmit="return confirm('Remove the overpricing flag from ' + this.dataset.product + ' (' + this.dataset.vendor + ')?')">
-                      <button class="btn-soft btn-xs-pw" title="This item is flagged for overpricing. Click to remove the flag."><i class="fa-solid fa-flag"></i> Unflag</button>
-                    </form>
-                  {% else %}
-                    <form method="POST" action="{{ url_for('lgu.flag_listing', listing_id=item.listing_id) }}" class="d-inline"
-                          data-vendor="{{ item.vendor_name }}" data-product="{{ item.product_name }}"
-                          onsubmit="var n = prompt('Flag ' + this.dataset.product + ' from ' + this.dataset.vendor + ' for overpricing?\nShoppers will see an overpricing notice on this item only.\nOptional note:', ''); if (n === null) return false; this.note.value = n; return true;">
-                      <input type="hidden" name="note">
-                      <button class="btn-danger-soft btn-xs-pw"><i class="fa-solid fa-flag"></i> Flag</button>
-                    </form>
-                  {% endif %}
-                  {% if item.vendor_status == 'suspended' %}
-                    <form method="POST" action="{{ url_for('lgu.reactivate_vendor', vendor_id=item.vendor_id) }}" class="d-inline">
-                      <button class="btn-soft btn-xs-pw">Reactivate</button>
-                    </form>
-                  {% else %}
-                    <form method="POST" action="{{ url_for('lgu.suspend_vendor', vendor_id=item.vendor_id) }}" class="d-inline"
-                          data-vendor="{{ item.vendor_name }}" onsubmit="return confirm('Suspend ' + this.dataset.vendor + '? They will not be able to log in.')">
-                      <button class="btn-danger-soft btn-xs-pw">Suspend</button>
-                    </form>
-                  {% endif %}
-                {% endif %}
-              </div>
-            </td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-  {% else %}
-    <div class="text-center py-5 text-muted">
-      <i class="fa-solid fa-check-circle fs-1 text-success mb-3"></i>
-      <h5>No Flagged Vendors</h5>
-      <p>All vendor prices are currently within the standard DTI SRP range.</p>
-    </div>
-  {% endif %}
+<div class="alert alert-success py-2 mb-3" style="background: #e8f5e9; border-color: #c8e6c9; color: #2e7d32; font-size: 0.85rem;">
+  <i class="fa-solid fa-circle-info"></i> View only. Warning, flagging, or suspending vendors is handled by the LGU, which monitors the markets.
+</div>
+
+<div class="pw-card p-0" style="overflow: hidden;">
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead class="table-light">
+        <tr>
+          <th class="ps-3">Vendor Name</th>
+          <th>Commodity</th>
+          <th class="text-end">Vendor Price</th>
+          <th class="text-end">Standard Price (SRP)</th>
+          <th class="text-end text-danger">Overprice Amount</th>
+          <th class="text-center pe-3">Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in flagged %}
+        <tr>
+          <td class="ps-3 fw-semibold">{{ item.vendor_name }}</td>
+          <td>{{ item.product_name }}</td>
+          <td class="text-end fw-bold">₱{{ "%.2f"|format(item.vendor_price) }}</td>
+          <td class="text-end text-muted">₱{{ "%.2f"|format(item.standard_price) }}</td>
+          <td class="text-end fw-bold text-danger">+₱{{ "%.2f"|format(item.deviation) }}</td>
+          <td class="text-center pe-3">
+            <form method="POST" action="{{ url_for('lgu.warn_vendor', vendor_id=item.vendor_id) }}">
+              <button type="submit" class="btn-danger-soft btn-sm-pw" style="padding: 4px 10px; font-size: 0.75rem;" onclick="return confirm('Send a formal warning to this vendor?')">
+                <i class="fa-solid fa-bell"></i> Warn
+              </button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="6" class="text-center text-muted py-4">
+            <i class="fa-solid fa-check-circle fs-3 text-success mb-2 d-block"></i>
+            No flagged vendors. All prices are within the DTI SRP baseline!
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
 </div>
 
 {% endblock %}
