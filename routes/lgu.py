@@ -18,7 +18,7 @@ from models import (
 )
 from utils.helpers import get_settings, log_action, refresh_rules_for_product, role_required, save_settings
 from utils.notifications import notify
-from utils.qr_generator import generate_qr_bytes, market_price_search_url
+from utils.qr_generator import generate_qr_bytes, is_local_network_url, market_price_search_url, public_base_url
 from utils.report_generator import build_csv_report, build_pdf_report, build_xlsx_report
 
 bp = Blueprint("lgu", __name__)
@@ -731,14 +731,16 @@ def download_report(export_id):
 @lgu_only
 def qr_codes():
     markets = sorted(Market.all(), key=lambda m: m.market_name)
-    return render_template("lgu_qr_codes.html", markets=markets)
+    base = public_base_url()
+    return render_template("lgu_qr_codes.html", markets=markets, qr_base=base,
+                           qr_local_only=is_local_network_url(base))
 
 
 @bp.route("/qr/<int:market_id>/download")
 @lgu_only
 def download_qr(market_id):
     market = Market.get_or_404(market_id)
-    png = generate_qr_bytes(market_price_search_url(request.url_root, market_id))
+    png = generate_qr_bytes(market_price_search_url(public_base_url(), market_id))
     _bump_qr(1)
     return send_file(io.BytesIO(png), mimetype="image/png", as_attachment=True,
                      download_name=f"qr-{market.market_name.replace(' ', '-').lower()}.png")
@@ -752,7 +754,7 @@ def download_all_qr():
     with zipfile.ZipFile(buf, "w") as zf:
         for m in markets:
             zf.writestr(f"qr-{m.market_name.replace(' ', '-').lower()}.png",
-                        generate_qr_bytes(market_price_search_url(request.url_root, m.market_id)))
+                        generate_qr_bytes(market_price_search_url(public_base_url(), m.market_id)))
     buf.seek(0)
     _bump_qr(len(markets))
     return send_file(buf, mimetype="application/zip", as_attachment=True, download_name="presyowatch-market-qr-codes.zip")

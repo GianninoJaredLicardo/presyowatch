@@ -4,6 +4,14 @@
 <h4 class="page-title">Market QR Codes</h4>
 <p class="small">Print these and post them at market entrances. Shoppers scan to see live verified prices for that market.</p>
 
+<div class="note-box mb-3">
+  <i class="fa-solid fa-link"></i>
+  <div class="small">QR codes open <b>{{ qr_base }}</b>
+    {% if qr_local_only %}<br><span class="text-danger">This address only works for phones on the <b>same Wi-Fi</b> as this computer.
+      Before printing, put the site online and set <code>PUBLIC_BASE_URL</code>.</span>{% endif %}
+  </div>
+</div>
+
 <div class="stat-row c2">
   {% for m in markets %}
   <div class="pw-card text-center" style="padding:12px">

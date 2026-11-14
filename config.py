@@ -13,6 +13,11 @@ class Config:
     # Application Default Credentials are used (e.g. on Cloud Run).
     FIREBASE_CREDENTIALS = os.environ.get("FIREBASE_CREDENTIALS")
 
+    # Public address that QR codes point to, e.g. https://presyowatch.example.com
+    # Leave empty while testing: QR codes then use this computer's Wi-Fi address,
+    # so phones on the same Wi-Fi can open them.
+    PUBLIC_BASE_URL = os.environ.get("PUBLIC_BASE_URL", "").strip()
+
     UPLOAD_FOLDER = os.path.join(BASE_DIR, "static", "uploads")
     EXPORT_FOLDER = os.path.join(BASE_DIR, "exports")
     MAX_CONTENT_LENGTH = 5 * 1024 * 1024  # 5 MB max photo upload

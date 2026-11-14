@@ -10,7 +10,54 @@ Two use cases from the capstone scope:
    verification page.
 """
 import io
+import ipaddress
+import socket
+from urllib.parse import urlsplit, urlunsplit
+
 import qrcode
+from flask import current_app, request
+
+LOCAL_HOSTS = {"localhost", "127.0.0.1", "::1", "0.0.0.0"}
+
+
+def _lan_ip():
+    """This computer's address on the local network (no traffic is actually sent)."""
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        s.connect(("10.255.255.255", 1))
+        return s.getsockname()[0]
+    except OSError:
+        return None
+    finally:
+        s.close()
+
+
+def public_base_url():
+    """Base URL that phones scanning a QR code can actually open.
+
+    1. PUBLIC_BASE_URL from the config/.env, when set (use this once the site is online).
+    2. Otherwise the address the page was opened with — except "localhost"/"127.0.0.1",
+       which only works on this computer, so it is swapped for the computer's Wi-Fi address.
+    """
+    configured = current_app.config.get("PUBLIC_BASE_URL")
+    if configured:
+        return configured.rstrip("/") + "/"
+    parts = urlsplit(request.url_root)
+    if (parts.hostname or "").lower() in LOCAL_HOSTS:
+        ip = _lan_ip()
+        if ip:
+            netloc = f"{ip}:{parts.port}" if parts.port else ip
+            parts = parts._replace(netloc=netloc)
+    return urlunsplit(parts)
+
+
+def is_local_network_url(url):
+    """True when the URL only works for devices on the same network (e.g. 192.168.x.x)."""
+    host = urlsplit(url).hostname or ""
+    try:
+        return ipaddress.ip_address(host).is_private
+    except ValueError:
+        return host.lower() in LOCAL_HOSTS or host.endswith(".local")
 
 
 def generate_qr_bytes(data: str) -> bytes:

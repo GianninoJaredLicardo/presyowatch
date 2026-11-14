@@ -65,6 +65,14 @@ async function startCamera() {
   }
   if (scanner) return;
 
+  // Browsers only allow the camera on secure (https) pages or on localhost. Opened over
+  // plain http from another device (e.g. http://192.168.x.x), the camera is hidden entirely.
+  if (!window.isSecureContext) {
+    statusEl.textContent = 'The in-app camera needs a secure (https) link. Scan the QR code with your '
+      + "phone's camera app instead, or upload a photo of it below.";
+    return;
+  }
+
   // Check if the browser supports camera access
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
     statusEl.textContent = 'Camera not supported in this browser. Please upload a QR image instead.';
