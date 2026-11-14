@@ -7,6 +7,27 @@
 <form method="POST" class="pw-card">
 
   <div class="field">
+    <label class="form-label">Tracked commodity (optional)</label>
+    <!-- Searchable input for tracked commodity -->
+    <input 
+      class="input-pw" 
+      type="text" 
+      name="product_name" 
+      list="product-list" 
+      placeholder="Type to search or add a new commodity..."
+      value="{{ current_product_name if current_product_name else '' }}"
+    >
+    <datalist id="product-list">
+      {% for p in products %}
+        <option value="{{ p.product_name }}"></option>
+      {% endfor %}
+    </datalist>
+    <div class="small-note mt-1">
+      Linking a tracked commodity lets your price be checked against the DTI SRP and market average.
+    </div>
+  </div>
+
+  <div class="field">
     <label class="form-label">Item name</label>
     <input 
       class="input-pw" 
@@ -61,21 +82,6 @@
         <option value="{{ v }}" {{ 'selected' if listing and listing.stock_status == v }}>{{ t }}</option>
       {% endfor %}
     </select>
-  </div>
-
-  <div class="field">
-    <label class="form-label">Tracked commodity (optional)</label>
-    <select class="input-pw" name="product_id">
-      <option value="">— none —</option>
-      {% for p in products %}
-        <option value="{{ p.product_id }}" {{ 'selected' if listing and listing.product_id == p.product_id }}>
-          {{ p.product_name }}
-        </option>
-      {% endfor %}
-    </select>
-    <div class="small-note mt-1">
-      Linking a tracked commodity lets your price be checked against the DTI SRP and market average.
-    </div>
   </div>
 
   <button class="btn-pw btn-block" type="submit">Save Listing</button>

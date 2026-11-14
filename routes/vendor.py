@@ -6,8 +6,7 @@ from flask import Blueprint, abort, render_template, request, redirect, url_for,
 from flask_login import current_user
 
 from models import Listing, Market, Product, Review, ScanEvent
-from utils.helpers import log_action, refresh_rules_for_product, role_required, vendor_stats
-from utils.notifications import notify
+from utils.helpers import log_action, role_required, vendor_stats
 from utils.spike_detection import create_report
 
 bp = Blueprint("vendor", __name__)
@@ -34,8 +33,6 @@ def _apply_price(listing, new_price):
     listing.price = new_price
     listing.updated_at = datetime.utcnow()
     listing.save()
-    if listing.product_id:
-        refresh_rules_for_product(listing.product_id)
     if listing.product_id and current_user.market_id:
         report, is_spike = create_report(
             current_user.user_id, listing.product_id, current_user.market_id, new_price,
@@ -59,9 +56,6 @@ def dashboard():
         "vendor_dashboard.html",
         listings=listings,
         needs_attention=[l for l in listings if l.stock_status != "in_stock"],
-        flagged_items=[l for l in listings if l.is_price_flagged],
-        # LGU price warnings from Flagged Vendors; one clears once the vendor updates that listing.
-        warnings=[l for l in listings if l.lgu_warned_at and l.lgu_warned_at >= (l.updated_at or l.lgu_warned_at)],
         stats=vendor_stats(current_user.user_id),
         scans=_weekly_scans(),
         reviews=reviews[:2],
@@ -157,13 +151,25 @@ def listing_form(listing_id=None):
         category = request.form.get("category", "General").strip() or "General"
         unit = request.form.get("unit", "kg").strip() or "kg"
         stock = request.form.get("stock_status", "in_stock")
-        product_id = request.form.get("product_id", type=int) or None
+        
+        # NEW: Handle the searchable commodity input
+        product_name_input = request.form.get("product_name", "").strip()
+        product_id = None
+
+        if product_name_input:
+            # Find existing product (case-insensitive)
+            existing_product = next((p for p in products if p.product_name.lower() == product_name_input.lower()), None)
+            if existing_product:
+                product_id = existing_product.product_id
+            else:
+                # Create a new product if it doesn't exist
+                new_product = Product(product_name=product_name_input, unit="kg", category="General")
+                new_product.save()
+                product_id = new_product.product_id
 
         if not name or price is None or not price > 0 or stock not in STOCK:
             flash("Name and a valid price are required.", "danger")
             return redirect(request.url)
-        if product_id and Product.get(product_id) is None:
-            product_id = None
 
         if listing is None:
             listing = Listing(vendor_id=current_user.user_id, price=price)
@@ -176,7 +182,7 @@ def listing_form(listing_id=None):
         listing.category = category
         listing.unit = unit
         listing.stock_status = stock
-        listing.product_id = product_id
+        listing.product_id = product_id  # Save the linked product ID
         listing.updated_at = datetime.utcnow()
         listing.save()
 
@@ -188,13 +194,17 @@ def listing_form(listing_id=None):
                 date.today(), vendor_name=current_user.business_name,
             )
 
-        if product_id and new_price is None:
-            refresh_rules_for_product(product_id)
         log_action(current_user, "listing_saved", name)
         flash("Listing saved.", "success")
         return redirect(url_for("vendor.listings"))
 
-    return render_template("listing_form.html", listing=listing, products=products)
+    # Get the current product name for the input field if editing
+    current_product_name = ""
+    if listing and listing.product_id:
+        p = Product.get(listing.product_id)
+        if p: current_product_name = p.product_name
+
+    return render_template("listing_form.html", listing=listing, products=products, current_product_name=current_product_name)
 
 
 @bp.route("/listings/<int:listing_id>/delete", methods=["POST"])
@@ -263,12 +273,8 @@ def feedback():
 def reply_review(review_id):
     review = Review.get_or_404(review_id)
     if review.vendor_id == current_user.user_id:
-        had_reply = bool(review.reply)
         review.reply = request.form.get("reply", "").strip()[:500] or None
         review.save()
-        if review.reply and not had_reply:
-            notify(review.user_id, f"{current_user.business_name or current_user.full_name} replied to your review",
-                   review.reply[:160], link=f"/vendor/{current_user.user_id}", icon="reply")
         flash("Reply posted.", "success")
     return redirect(url_for("vendor.feedback"))
 

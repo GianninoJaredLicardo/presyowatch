@@ -16,23 +16,18 @@ from models import (
     Alert, AuditLog, BillingRecord, DtiSrp, Listing, Market, PriceReport, Product, ReportExport,
     Subscription, User,
 )
-from utils.helpers import get_settings, log_action, refresh_rules_for_product, role_required, save_settings
-from utils.notifications import notify
+from utils.helpers import get_settings, log_action, role_required, save_settings
 from utils.qr_generator import generate_qr_bytes, market_price_search_url
 from utils.report_generator import build_csv_report, build_pdf_report, build_xlsx_report
 
 bp = Blueprint("lgu", __name__)
 lgu_only = role_required("lgu_staff", "dti_da", "admin")
 
-# LGU actions (vendor management, subscription). Monitoring and enforcement are the LGU's job,
-# so only LGU staff may act; DTI/DA and the site admin can view the flagged list but not act on it.
-LGU_ACTION_ROLES = ("lgu_staff",)
-
-
+# Decorator for LGU-only actions (blocks DTI)
 def lgu_admin_only(f):
     @wraps(f)
     def wrapper(*args, **kwargs):
-        if not current_user.is_authenticated or current_user.role not in LGU_ACTION_ROLES:
+        if not current_user.is_authenticated or current_user.role != "lgu_staff":
             abort(403)
         return f(*args, **kwargs)
     return wrapper
@@ -119,22 +114,6 @@ def report_detail(report_id):
     )
 
 
-def _notify_report_reviewed(report, status):
-    reporter = User.get(report.user_id)
-    if reporter is None or reporter.role not in ("resident", "vendor"):
-        return
-    product = Product.get(report.product_id)
-    item = f"{product.product_name if product else 'Item'} at ₱{float(report.price):,.2f}"
-    title, icon, tone = {
-        "verified": ("Your price report was verified", "circle-check", "good"),
-        "rejected": ("Your price report was rejected", "circle-xmark", "bad"),
-        "flagged": ("Your price report was flagged for follow-up", "flag", "warn"),
-    }[status]
-    message = f"{item}." + (f" LGU note: {report.verification_notes}" if report.verification_notes else "")
-    link = url_for("resident.dashboard") if reporter.role == "resident" else url_for("vendor.prices")
-    notify(reporter.user_id, title, message, link=link, icon=icon, tone=tone)
-
-
 def _review_report(report_id, status, label):
     report = PriceReport.get_or_404(report_id)
     report.status = status
@@ -142,9 +121,6 @@ def _review_report(report_id, status, label):
     report.verified_at = datetime.utcnow()
     report.verification_notes = request.form.get("notes", "").strip()[:500] or None
     report.save()
-    _notify_report_reviewed(report, status)
-    if status == "verified":
-        refresh_rules_for_product(report.product_id)
     log_action(current_user, f"report_{status}", f"Report #{report_id}")
     flash(f"Report #{report_id} {label}.", "success" if status == "verified" else "info")
     dest = request.form.get("next", "")
@@ -255,6 +231,46 @@ def stats():
     )
 
 
+# ---- DTI SRP MANAGEMENT (Module 2) ------------------------------------------
+@bp.route("/srp-management", methods=["GET", "POST"])
+@lgu_only
+def srp_management():
+    if request.method == "POST":
+        product_id = request.form.get("product_id", type=int)
+        srp_price = request.form.get("srp_price", type=float)
+        
+        if product_id and srp_price and srp_price > 0:
+            # Save the new SRP
+            DtiSrp(
+                product_id=product_id,
+                srp_price=srp_price,
+                bulletin_date=date.today(),
+                source="Manual DTI Update"
+            ).save()
+            
+            # Create the Update Log
+            product = Product.get(product_id)
+            log_action(current_user, "srp_updated", f"Updated SRP for {product.product_name if product else 'Unknown'} to ₱{srp_price}")
+            
+            flash("SRP updated successfully and logged.", "success")
+        else:
+            flash("Please provide a valid product and SRP price.", "danger")
+            
+        return redirect(url_for("lgu.srp_management"))
+
+    products = sorted(Product.all(), key=lambda p: p.product_name)
+    
+    latest_srps = {}
+    for srp in DtiSrp.all():
+        current = latest_srps.get(srp.product_id)
+        if current is None or (srp.bulletin_date, srp.srp_id) > (current.bulletin_date, current.srp_id):
+            latest_srps[srp.product_id] = srp
+
+    logs = sorted([l for l in AuditLog.all() if l.action == "srp_updated"], key=lambda l: l.created_at, reverse=True)[:10]
+
+    return render_template("lgu_srp_management.html", products=products, latest_srps=latest_srps, logs=logs)
+
+
 # ---- flagged vendors --------------------------------------------------------
 @bp.route("/flagged-vendors")
 @lgu_only
@@ -273,95 +289,21 @@ def flagged_vendors():
     for l in listings:
         if l.product_id and l.product_id in srps and l.price:
             srp_price = float(srps[l.product_id].srp_price)
-            # Keep flagged items listed even after the price drops, so the LGU can unflag them.
-            if float(l.price) > srp_price or l.is_price_flagged:
+            if float(l.price) > srp_price:
                 vendor = vendors.get(l.vendor_id)
                 product = products.get(l.product_id)
                 deviation = float(l.price) - srp_price
                 flagged.append({
-                    "vendor_name": (vendor.business_name or vendor.full_name) if vendor else "Unknown Vendor",
+                    "vendor_name": vendor.business_name or vendor.full_name if vendor else "Unknown Vendor",
                     "product_name": product.product_name if product else l.name,
                     "vendor_price": float(l.price),
                     "standard_price": srp_price,
                     "deviation": deviation,
-                    "vendor_id": l.vendor_id,
-                    "listing_id": l.listing_id,
-                    "vendor_status": vendor.vendor_status if vendor else None,
-                    "is_price_flagged": bool(l.is_price_flagged),
-                    "prev_price": float(l.prev_price) if l.prev_price else None,
-                    "warned_at": l.lgu_warned_at if _warning_active(l) else None,
+                    "vendor_id": l.vendor_id
                 })
-
+    
     flagged.sort(key=lambda x: x["deviation"], reverse=True)
-    return render_template("lgu_flagged_vendors.html", flagged=flagged,
-                           can_act=current_user.role in LGU_ACTION_ROLES)
-
-
-def _warning_active(listing):
-    """A warning stays active until the vendor next updates the listing."""
-    return bool(listing.lgu_warned_at and listing.lgu_warned_at >= (listing.updated_at or listing.lgu_warned_at))
-
-
-@bp.route("/flagged-vendors/<int:listing_id>/flag", methods=["POST"])
-@lgu_admin_only
-def flag_listing(listing_id):
-    """Publicly flag one commodity listing for overpricing. The vendor's other items are not affected."""
-    listing = Listing.get_or_404(listing_id)
-    vendor = User.get(listing.vendor_id)
-    note = request.form.get("note", "").strip()[:300]
-    listing.is_price_flagged = True
-    listing.price_flag_reason = (f"{listing.name} at ₱{float(listing.price):,.2f} is above the standard price"
-                                 + (f". LGU note: {note}" if note else ""))
-    listing.price_flagged_at = datetime.utcnow()
-    listing.save()
-    name = (vendor.business_name or vendor.full_name) if vendor else f"Vendor #{listing.vendor_id}"
-    notify(listing.vendor_id, f"{listing.name} was flagged for overpricing",
-           f"{listing.price_flag_reason}. Shoppers now see an overpricing notice on this item. "
-           "Lower the price, then ask your LGU to remove the flag.",
-           link=url_for("vendor.listing_form", listing_id=listing.listing_id), icon="flag", tone="bad")
-    log_action(current_user, "listing_flagged", f"{name} · {listing.price_flag_reason}")
-    flash(f"{listing.name} from {name} is now flagged for overpricing.", "success")
-    return redirect(url_for("lgu.flagged_vendors"))
-
-
-@bp.route("/flagged-vendors/<int:listing_id>/unflag", methods=["POST"])
-@lgu_admin_only
-def unflag_listing(listing_id):
-    listing = Listing.get_or_404(listing_id)
-    vendor = User.get(listing.vendor_id)
-    listing.is_price_flagged = False
-    listing.price_flag_reason = None
-    listing.price_flagged_at = None
-    listing.save()
-    name = (vendor.business_name or vendor.full_name) if vendor else f"Vendor #{listing.vendor_id}"
-    notify(listing.vendor_id, f"Overpricing flag removed from {listing.name}",
-           f"Your LGU removed the overpricing flag from {listing.name}.",
-           link="/vendor/listings", icon="circle-check", tone="good")
-    log_action(current_user, "listing_unflagged", f"{name} · {listing.name}")
-    flash(f"Overpricing flag removed from {listing.name} ({name}).", "success")
-    return redirect(request.referrer or url_for("lgu.flagged_vendors"))
-
-
-@bp.route("/flagged-vendors/<int:listing_id>/warn", methods=["POST"])
-@lgu_admin_only
-def warn_vendor(listing_id):
-    listing = Listing.get_or_404(listing_id)
-    vendor = User.get(listing.vendor_id)
-    srp = max((s for s in DtiSrp.find(product_id=listing.product_id)),
-              key=lambda s: (s.bulletin_date, s.srp_id), default=None) if listing.product_id else None
-    srp_text = f" (DTI SRP ₱{float(srp.srp_price):,.2f})" if srp else ""
-    note = request.form.get("note", "").strip()[:300]
-    listing.lgu_warning = (f"Your price for {listing.name}, ₱{float(listing.price):,.2f}, is above the "
-                           f"standard price{srp_text}. Please review and adjust it." + (f" LGU note: {note}" if note else ""))
-    listing.lgu_warned_at = datetime.utcnow()
-    listing.save()
-    notify(listing.vendor_id, "Price warning from your LGU", listing.lgu_warning,
-           link=url_for("vendor.listing_form", listing_id=listing.listing_id),
-           icon="triangle-exclamation", tone="bad")
-    name = (vendor.business_name or vendor.full_name) if vendor else f"Vendor #{listing.vendor_id}"
-    log_action(current_user, "vendor_warned", f"{name} · {listing.name} ₱{float(listing.price):,.2f}")
-    flash(f"Warning sent to {name} about {listing.name}.", "success")
-    return redirect(url_for("lgu.flagged_vendors"))
+    return render_template("lgu_flagged_vendors.html", flagged=flagged)
 
 
 # ---- subscription (LGU ADMIN ONLY) -------------------------------------------------
@@ -387,7 +329,7 @@ def _charge(plan_key, note=""):
 
 
 @bp.route("/subscription")
-@lgu_admin_only  # <--- DTI CANNOT ACCESS THIS
+@lgu_admin_only
 def subscription():
     sub = _subscription()
     plan = PLANS[sub.plan]
@@ -487,7 +429,7 @@ def cancel_subscription():
 
 # ---- manage: vendors + reports (LGU ADMIN ONLY) --------------------------------------
 @bp.route("/manage")
-@lgu_admin_only  # <--- DTI CANNOT ACCESS THIS
+@lgu_admin_only
 def manage():
     tab = request.args.get("tab", "vendors")
     if tab == "reports":
@@ -511,9 +453,8 @@ def _manage_vendors():
         }.get(status, True)
 
     vendors = sorted((v for v in vendors if keep(v)), key=lambda v: (v.business_name or v.full_name).lower())
-    flagged_items = Counter(l.vendor_id for l in Listing.find(is_price_flagged=True))
     return render_template("lgu_manage_vendors.html", vendors=vendors, markets=markets, status=status,
-                           q=request.args.get("q", ""), flagged_items=flagged_items)
+                           q=request.args.get("q", ""))
 
 
 def _gather_export_rows(date_from, date_to, market_id):
@@ -548,16 +489,13 @@ def _manage_reports():
     )
 
 
-def _vendor_action(vendor_id, message, notice=None, **changes):
+def _vendor_action(vendor_id, message, **changes):
     vendor = User.get_or_404(vendor_id)
     if vendor.role != "vendor":
         abort(404)
     for k, v in changes.items():
         setattr(vendor, k, v)
     vendor.save()
-    if notice:
-        title, body, link, icon, tone = notice
-        notify(vendor.user_id, title, body, link=link, icon=icon, tone=tone)
     log_action(current_user, "vendor_" + message.split()[0].lower(), vendor.business_name or vendor.full_name)
     flash(f"{vendor.business_name or vendor.full_name}: {message}.", "success")
     return redirect(request.referrer or url_for("lgu.manage"))
@@ -566,29 +504,20 @@ def _vendor_action(vendor_id, message, notice=None, **changes):
 @bp.route("/vendors/<int:vendor_id>/suspend", methods=["POST"])
 @lgu_admin_only
 def suspend_vendor(vendor_id):
-    return _vendor_action(vendor_id, "suspended", vendor_status="suspended", is_active_flag=False,
-                          notice=("Your vendor account was suspended",
-                                  "Your LGU suspended your stall on PresyoWatch. Contact your LGU office for details.",
-                                  None, "ban", "bad"))
+    return _vendor_action(vendor_id, "suspended", vendor_status="suspended", is_active_flag=False)
 
 
 @bp.route("/vendors/<int:vendor_id>/reactivate", methods=["POST"])
 @lgu_admin_only
 def reactivate_vendor(vendor_id):
-    return _vendor_action(vendor_id, "reactivated", vendor_status="active", is_active_flag=True,
-                          notice=("Your vendor account is active again",
-                                  "Your LGU reactivated your stall. Your listings are visible to shoppers again.",
-                                  "/vendor/dashboard", "circle-check", "good"))
+    return _vendor_action(vendor_id, "reactivated", vendor_status="active", is_active_flag=True)
 
 
 @bp.route("/vendors/<int:vendor_id>/approve", methods=["POST"])
 @lgu_admin_only
 def approve_vendor(vendor_id):
     return _vendor_action(vendor_id, "badge approved", vendor_status="active", is_active_flag=True,
-                          is_verified_vendor=True, vendor_verified_at=datetime.utcnow(),
-                          notice=("You're now a Verified vendor",
-                                  "Your LGU approved your Verified badge. Shoppers will see it on your stall page.",
-                                  "/vendor/profile", "certificate", "good"))
+                          is_verified_vendor=True, vendor_verified_at=datetime.utcnow())
 
 
 def _alert_action(alert_id, status, label):

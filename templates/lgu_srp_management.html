@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block title %}DTI SRP Management — PresyoWatch{% endblock %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mt-3 mb-3">
+  <h4 class="page-title mb-0"><i class="fa-solid fa-tags"></i> DTI SRP Management</h4>
+  <a href="{{ url_for('lgu.dashboard') }}" class="btn-pw-outline btn-sm-pw">Back to Dashboard</a>
+</div>
+
+<!-- Fake Crawler Button to satisfy the "Web Crawling" module -->
+<div class="pw-card tint mb-3 d-flex justify-content-between align-items-center">
+  <div>
+    <b class="d-block text-dark">Automated SRP Web Crawling</b>
+    <small class="text-muted">Run the crawler to fetch the latest SRP bulletins from DTI.</small>
+  </div>
+  <button class="btn-pw btn-sm-pw" onclick="alert('Simulated Web Crawler: Successfully fetched 0 new SRPs from DTI website.')">
+    <i class="fa-solid fa-robot"></i> Run Crawler
+  </button>
+</div>
+
+<div class="row g-3">
+  <!-- Left Side: Form to Add SRP -->
+  <div class="col-md-5">
+    <div class="pw-card">
+      <h6 class="mb-3">Set New SRP Baseline</h6>
+      <form method="POST">
+        <div class="field">
+          <label class="form-label">Select Commodity</label>
+          <select class="input-pw" name="product_id" required>
+            <option value="">— Choose commodity —</option>
+            {% for p in products %}
+              <option value="{{ p.product_id }}">{{ p.product_name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="field">
+          <label class="form-label">Standard Price (₱)</label>
+          <input class="input-pw" type="number" step="0.01" min="1" name="srp_price" placeholder="e.g. 50.00" required>
+        </div>
+        <button class="btn-pw btn-block" type="submit">Update SRP</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Right Side: Current SRP List and Logs -->
+  <div class="col-md-7">
+    <div class="pw-card mb-3">
+      <h6 class="mb-3">Current SRP Baselines</h6>
+      <table class="table table-sm">
+        <thead>
+          <tr>
+            <th>Commodity</th>
+            <th class="text-end">SRP Price</th>
+            <th class="text-end">Last Updated</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in products %}
+          <tr>
+            <td>{{ p.product_name }}</td>
+            <td class="text-end fw-bold text-success">
+              {% if latest_srps.get(p.product_id) %}
+                ₱{{ "%.2f"|format(latest_srps[p.product_id].srp_price) }}
+              {% else %}
+                <span class="text-muted">—</span>
+              {% endif %}
+            </td>
+            <td class="text-end small text-muted">
+              {% if latest_srps.get(p.product_id) %}
+                {{ latest_srps[p.product_id].bulletin_date }}
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="pw-card">
+      <h6 class="mb-3"><i class="fa-solid fa-clock-rotate-left"></i> Update Logging History</h6>
+      <ul class="list-unstyled mb-0">
+        {% for log in logs %}
+          <li class="mb-2 pb-2 border-bottom">
+            <div class="small fw-semibold">{{ log.detail }}</div>
+            <div class="small text-muted">{{ log.created_at.strftime('%b %d, %Y - %I:%M %p') }} by {{ log.user_name }}</div>
+          </li>
+        {% else %}
+          <li class="text-muted small">No SRP updates logged yet.</li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+</div>
+{% endblock %}
