@@ -25,6 +25,15 @@
   <noscript><button class="btn-pw btn-sm-pw" type="submit">Search</button></noscript>
 </form>
 
+<!-- Compare Prices Button -->
+{% if results|length > 1 %}
+<div class="d-flex justify-content-end mb-3">
+  <button class="btn-pw-outline btn-sm-pw" data-bs-toggle="modal" data-bs-target="#compareModal">
+    <i class="fa-solid fa-scale-balanced"></i> Compare Prices
+  </button>
+</div>
+{% endif %}
+
 {% for r in results %}
 <div class="pw-card list-card">
   <div class="d-flex justify-content-between align-items-start gap-2">
@@ -47,4 +56,54 @@
 {% else %}
 <div class="pw-card text-center text-muted">No prices found for these filters yet.</div>
 {% endfor %}
+
+<!-- Compare Modal -->
+<div class="modal fade" id="compareModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content" style="border-radius: 16px; border: none;">
+      <div class="modal-header border-0 pb-0">
+        <h5 class="modal-title fw-bold text-dark"><i class="fa-solid fa-scale-balanced text-success"></i> Price Comparison</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p class="small text-muted mb-3">Comparing prices for <b>{{ q or 'All Items' }}</b> across different markets.</p>
+        
+        <div class="table-responsive">
+          <table class="table table-hover align-middle">
+            <thead class="table-light">
+              <tr>
+                <th>Vendor / Reporter</th>
+                <th>Market</th>
+                <th>Date</th>
+                <th class="text-end">Price</th>
+                <th class="text-end">Difference</th>
+              </tr>
+            </thead>
+            <tbody>
+              <!-- Find the lowest price to calculate the difference -->
+              {% set lowest_price = (results | map(attribute='price') | min) if results else 0 %}
+              
+              {% for r in results|sort(attribute='price') %}
+              <tr>
+                <td class="fw-semibold">{{ r.seller }}</td>
+                <td>{{ r.market }}</td>
+                <td class="small text-muted">{{ r.date|localtime('%b %d') if r.date else '' }}</td>
+                <td class="text-end fw-bold">₱{{ "%.2f"|format(r.price) }}</td>
+                <td class="text-end {% if r.price == lowest_price %}text-success fw-bold{% else %}text-danger{% endif %}">
+                  {% if r.price == lowest_price %}
+                    Cheapest
+                  {% else %}
+                    +₱{{ "%.2f"|format(r.price - lowest_price) }}
+                  {% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 {% endblock %}
