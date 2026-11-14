@@ -7,6 +7,7 @@ from flask_login import current_user
 
 from models import Listing, Market, Product, Review, ScanEvent
 from utils.helpers import log_action, refresh_rules_for_product, role_required, vendor_stats
+from utils.csv_import import parse_listing_file
 from utils.notifications import notify
 from utils.spike_detection import create_report
 
@@ -97,51 +98,44 @@ def download_template():
 @vendor_only
 def import_listings():
     file = request.files.get("csv_file")
-    if not file or not file.filename.endswith('.csv'):
-        flash("Please upload a valid CSV file.", "danger")
+    if not file or not file.filename:
+        flash("Please choose a CSV or Excel file to import.", "danger")
+        return redirect(url_for("vendor.listings"))
+    if not file.filename.lower().endswith((".csv", ".tsv", ".txt", ".xlsx", ".xlsm", ".xls")):
+        flash(f"\"{file.filename}\" isn't a supported file. Please upload a CSV or Excel (.xlsx) file.", "danger")
         return redirect(url_for("vendor.listings"))
 
     try:
-        stream = io.StringIO(file.stream.read().decode("UTF8"), newline=None)
-        csv_input = csv.DictReader(stream)
-        
-        imported_count = 0
-        for row in csv_input:
-            name = row.get("Item Name", "").strip()
-            category = row.get("Category", "General").strip() or "General"
-            price_str = row.get("Price", "0").strip()
-            unit = row.get("Unit", "kg").strip() or "kg"
-            stock = row.get("Stock Status", "in_stock").strip().lower()
+        rows, skipped, _cols = parse_listing_file(file.stream.read(), file.filename)
+    except ValueError as e:
+        flash(f"Couldn't import \"{file.filename}\". {e}", "danger")
+        return redirect(url_for("vendor.listings"))
+    except Exception:
+        flash(f"Couldn't read \"{file.filename}\". Please check that the file isn't damaged and try again.", "danger")
+        return redirect(url_for("vendor.listings"))
 
-            if not name or not price_str:
-                continue
-            try:
-                price = float(price_str)
-                if price <= 0: continue
-            except ValueError:
-                continue
-                
-            if stock not in STOCK:
-                stock = "in_stock"
+    imported = 0
+    try:
+        for r in rows:
+            Listing(vendor_id=current_user.user_id, updated_at=datetime.utcnow(), **r).save()
+            imported += 1
+    except Exception:
+        flash(f"Something went wrong while saving. Only {imported} of {len(rows)} "
+              f"{_plural(len(rows), 'product')} were added. Please try again.", "danger")
+        return redirect(url_for("vendor.listings"))
 
-            Listing(
-                vendor_id=current_user.user_id,
-                name=name,
-                category=category,
-                price=price,
-                unit=unit,
-                stock_status=stock,
-                updated_at=datetime.utcnow()
-            ).save()
-            imported_count += 1
-            
-        log_action(current_user, "listings_imported", f"Imported {imported_count} items")
-        flash(f"Successfully imported {imported_count} listings from CSV.", "success")
-        
-    except Exception as e:
-        flash(f"Error reading CSV file: {str(e)}", "danger")
+    log_action(current_user, "listings_imported", f"{file.filename}: added {imported}, skipped {len(skipped)}")
+    flash(f"{imported} {_plural(imported, 'product')} added to your listings from \"{file.filename}\".", "success")
+    if skipped:
+        shown = "; ".join(skipped[:3]) + (f"; and {len(skipped) - 3} more" if len(skipped) > 3 else "")
+        flash(f"{len(skipped)} {_plural(len(skipped), 'row')} {'was' if len(skipped) == 1 else 'were'} "
+              f"not added because of missing or invalid details: {shown}.", "warning")
 
     return redirect(url_for("vendor.listings"))
+
+
+def _plural(n, word):
+    return word if n == 1 else word + "s"
 
 
 @bp.route("/listings/new", methods=["GET", "POST"])

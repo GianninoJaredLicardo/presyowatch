@@ -314,7 +314,53 @@ textarea.input-pw { min-height: 80px; resize: vertical; }
 .bottom-nav a.active { color: var(--primary); font-weight: 800; }
 .bottom-nav a.active i { background: var(--primary-soft); color: var(--primary); }
 
-/* ---- flash ---------------------------------------------------------------------------------------- */
+/* ---- floating toast notifications (flash messages) ------------------------------------------------ */
+.toast-stack {
+  position: fixed; top: 16px; left: 50%; transform: translateX(-50%); z-index: 2000;
+  width: min(420px, calc(100% - 24px)); display: flex; flex-direction: column; gap: 10px; pointer-events: none;
+}
+.pw-toast {
+  --tone: var(--primary); --tone-soft: var(--primary-soft);
+  position: relative; overflow: hidden; pointer-events: auto;
+  display: flex; align-items: flex-start; gap: 12px; padding: 14px 44px 16px 14px;
+  background: rgba(255, 255, 255, .92); backdrop-filter: blur(14px) saturate(160%); -webkit-backdrop-filter: blur(14px) saturate(160%);
+  border: 1px solid rgba(255, 255, 255, .7); border-radius: 16px;
+  box-shadow: 0 1px 2px rgba(16, 24, 16, .06), 0 10px 30px -6px rgba(16, 24, 16, .22);
+  animation: pw-toast-in .45s cubic-bezier(.21, 1.02, .73, 1) both;
+  touch-action: pan-y;
+}
+.pw-toast + .pw-toast { animation-delay: .08s; }
+.pw-toast-success { --tone: var(--primary); --tone-soft: var(--primary-soft); }
+.pw-toast-danger  { --tone: var(--red); --tone-soft: var(--red-soft); }
+.pw-toast-warning { --tone: #c98a0c; --tone-soft: var(--accent-soft); }
+.pw-toast-info    { --tone: #3b82c4; --tone-soft: #e7f0fa; }
+.pw-toast-icon {
+  flex: none; width: 36px; height: 36px; border-radius: 12px; display: grid; place-items: center;
+  background: var(--tone-soft); color: var(--tone); font-size: 1.05rem;
+}
+.pw-toast-body { min-width: 0; flex: 1; padding-top: 1px; }
+.pw-toast-title { font-weight: 800; font-size: .9rem; color: var(--title); line-height: 1.25; }
+.pw-toast-msg { font-size: .84rem; color: var(--muted); line-height: 1.4; margin-top: 2px; overflow-wrap: anywhere; }
+.pw-toast-close {
+  position: absolute; top: 10px; right: 10px; width: 28px; height: 28px; border: 0; border-radius: 9px;
+  background: transparent; color: var(--muted); display: grid; place-items: center; font-size: .9rem;
+  transition: background .15s, color .15s;
+}
+.pw-toast-close:hover { background: var(--chip); color: var(--ink); }
+.pw-toast-bar {
+  position: absolute; left: 0; bottom: 0; height: 3px; width: 100%; background: var(--tone); opacity: .85;
+  transform-origin: left; animation: pw-toast-bar linear forwards; animation-duration: var(--toast-time, 5s);
+}
+.pw-toast:hover .pw-toast-bar, .pw-toast.is-paused .pw-toast-bar { animation-play-state: paused; }
+.pw-toast.is-leaving { animation: pw-toast-out .3s ease-in forwards; }
+@keyframes pw-toast-in { from { opacity: 0; transform: translateY(-16px) scale(.96); } to { opacity: 1; transform: none; } }
+@keyframes pw-toast-out { to { opacity: 0; transform: translateY(-10px) scale(.96); margin-top: -64px; } }
+@keyframes pw-toast-bar { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+@media (prefers-reduced-motion: reduce) {
+  .pw-toast, .pw-toast.is-leaving { animation-duration: .01s; }
+}
+
+/* ---- flash (legacy inline alerts) ----------------------------------------------------------------- */
 .flash-stack { margin-bottom: 14px; }
 .flash-stack .alert {
   border-radius: 14px; font-size: .9rem; font-weight: 500; border: 1px solid var(--line); border-left-width: 4px;

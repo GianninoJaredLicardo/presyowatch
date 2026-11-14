@@ -13,14 +13,14 @@
   <div class="d-flex justify-content-between align-items-center">
     <div>
       <b class="d-block text-dark">Bulk Upload</b>
-      <small class="text-muted">Add multiple products using a CSV file.</small>
+      <small class="text-muted">Add multiple products using a CSV or Excel (.xlsx) file.</small>
     </div>
     <div class="d-flex gap-2">
       <a href="{{ url_for('vendor.download_template') }}" class="btn-pw-outline btn-sm-pw">Download Template</a>
       <form method="POST" action="{{ url_for('vendor.import_listings') }}" enctype="multipart/form-data" class="d-inline">
-        <input type="file" name="csv_file" accept=".csv" id="csvUpload" hidden onchange="this.form.submit()">
+        <input type="file" name="csv_file" accept=".csv,.tsv,.txt,.xlsx,.xlsm,.xls" id="csvUpload" hidden onchange="this.form.submit()">
         <label for="csvUpload" class="btn-pw btn-sm-pw mb-0">
-          Import CSV
+          Import CSV / Excel
         </label>
       </form>
     </div>

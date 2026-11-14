@@ -55,11 +55,25 @@
 <main class="app-shell {{ 'wide' if is_admin else (shell|default('') ) }} {{ 'no-nav' if (not nav_items or hide_nav|default(false)) and not is_admin else '' }}">
   {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
-      <div class="flash-stack">
+      {% set toast_kinds = {
+        'success': ('success', 'circle-check', 'Success'),
+        'danger':  ('danger', 'circle-exclamation', 'Something went wrong'),
+        'error':   ('danger', 'circle-exclamation', 'Something went wrong'),
+        'warning': ('warning', 'triangle-exclamation', 'Heads up'),
+        'info':    ('info', 'circle-info', 'Notice'),
+      } %}
+      <div class="toast-stack" aria-live="polite">
       {% for category, message in messages %}
-        <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
-          {{ message }}
-          <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        {% set kind, icon, title = toast_kinds.get(category, toast_kinds['info']) %}
+        <div class="pw-toast pw-toast-{{ kind }}" role="{{ 'alert' if kind == 'danger' else 'status' }}"
+             data-timeout="{{ 9000 if kind in ('danger', 'warning') else 5000 }}">
+          <span class="pw-toast-icon"><i class="fa-solid fa-{{ icon }}"></i></span>
+          <div class="pw-toast-body">
+            <div class="pw-toast-title">{{ title }}</div>
+            <div class="pw-toast-msg">{{ message }}</div>
+          </div>
+          <button type="button" class="pw-toast-close" aria-label="Dismiss"><i class="fa-solid fa-xmark"></i></button>
+          <span class="pw-toast-bar"></span>
         </div>
       {% endfor %}
       </div>

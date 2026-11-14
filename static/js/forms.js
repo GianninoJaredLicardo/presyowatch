@@ -164,3 +164,49 @@
     document.addEventListener("mousedown", function (e) { if (!field.contains(e.target)) close(false); });
   });
 })();
+
+// ---- Floating toast notifications (flash messages) ----
+(function () {
+  function dismiss(toast) {
+    if (toast.classList.contains("is-leaving")) return;
+    toast.classList.add("is-leaving");
+    toast.addEventListener("animationend", function () {
+      var stack = toast.parentElement;
+      toast.remove();
+      if (stack && !stack.children.length) stack.remove();
+    }, { once: true });
+  }
+
+  document.querySelectorAll(".pw-toast").forEach(function (toast) {
+    var bar = toast.querySelector(".pw-toast-bar");
+    toast.style.setProperty("--toast-time", (parseInt(toast.dataset.timeout, 10) || 5000) + "ms");
+    // The progress bar is the timer: it pauses on hover (CSS), and the toast closes when it finishes.
+    if (bar) bar.addEventListener("animationend", function () { dismiss(toast); });
+    toast.querySelector(".pw-toast-close").addEventListener("click", function () { dismiss(toast); });
+
+    // Swipe sideways to dismiss on touch screens.
+    var startX = null, dx = 0;
+    toast.addEventListener("touchstart", function (e) {
+      startX = e.touches[0].clientX; dx = 0;
+      toast.classList.add("is-paused"); toast.style.transition = "none";
+    }, { passive: true });
+    toast.addEventListener("touchmove", function (e) {
+      if (startX === null) return;
+      dx = e.touches[0].clientX - startX;
+      toast.style.transform = "translateX(" + dx + "px)";
+      toast.style.opacity = String(Math.max(0, 1 - Math.abs(dx) / 220));
+    }, { passive: true });
+    toast.addEventListener("touchend", function () {
+      toast.classList.remove("is-paused");
+      toast.style.transition = "transform .2s, opacity .2s";
+      if (Math.abs(dx) > 80) {
+        toast.style.transform = "translateX(" + (dx > 0 ? 120 : -120) + "%)";
+        toast.style.opacity = "0";
+        setTimeout(function () { var s = toast.parentElement; toast.remove(); if (s && !s.children.length) s.remove(); }, 200);
+      } else {
+        toast.style.transform = ""; toast.style.opacity = "";
+      }
+      startX = null;
+    });
+  });
+})();
