@@ -1,3 +1,5 @@
+import json
+
 import firebase_admin
 from firebase_admin import credentials, firestore
 from flask_login import LoginManager
@@ -20,7 +22,10 @@ def get_db():
         try:
             firebase_admin.get_app()
         except ValueError:
-            if Config.FIREBASE_CREDENTIALS:
+            if Config.FIREBASE_CREDENTIALS_JSON:
+                # Hosting platforms: paste the whole service-account JSON into an env var.
+                cred = credentials.Certificate(json.loads(Config.FIREBASE_CREDENTIALS_JSON))
+            elif Config.FIREBASE_CREDENTIALS:
                 cred = credentials.Certificate(Config.FIREBASE_CREDENTIALS)
             else:
                 cred = credentials.ApplicationDefault()

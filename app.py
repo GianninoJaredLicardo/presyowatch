@@ -1,5 +1,6 @@
 from flask import Flask, request
 from flask_login import current_user
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 from config import Config
 from extensions import login_manager
@@ -36,6 +37,15 @@ NAV = {
 def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
+
+    if app.config["SECRET_KEY"] == "presyowatch-dev-secret-change-me":
+        if app.config["PUBLIC_BASE_URL"]:
+            raise RuntimeError("SECRET_KEY is not set. Set a long random SECRET_KEY environment variable before deploying.")
+        app.logger.warning("Using the default development SECRET_KEY. Set SECRET_KEY before deploying.")
+
+    # Hosting platforms put the app behind an HTTPS proxy; trust its headers so
+    # generated links (QR codes, redirects) use the real https:// address.
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 
     login_manager.init_app(app)
 

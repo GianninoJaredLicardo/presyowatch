@@ -7,16 +7,24 @@ BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 
 
 class Config:
-    SECRET_KEY = os.environ.get("SECRET_KEY", "presyowatch-dev-secret-change-me")
+    SECRET_KEY = os.environ.get("SECRET_KEY") or "presyowatch-dev-secret-change-me"
 
-    # Path to the Firebase service-account JSON key. If unset, Google
-    # Application Default Credentials are used (e.g. on Cloud Run).
+    # Firebase service account, either as a file path (local) or as the full JSON
+    # text (hosting platforms, where the key file isn't uploaded). If neither is set,
+    # Google Application Default Credentials are used (e.g. on Cloud Run).
     FIREBASE_CREDENTIALS = os.environ.get("FIREBASE_CREDENTIALS")
+    FIREBASE_CREDENTIALS_JSON = os.environ.get("FIREBASE_CREDENTIALS_JSON")
 
     # Public address that QR codes point to, e.g. https://presyowatch.example.com
     # Leave empty while testing: QR codes then use this computer's Wi-Fi address,
     # so phones on the same Wi-Fi can open them.
     PUBLIC_BASE_URL = os.environ.get("PUBLIC_BASE_URL", "").strip()
+
+    # Over HTTPS, only send the login cookie over encrypted connections.
+    SESSION_COOKIE_SECURE = PUBLIC_BASE_URL.startswith("https://")
+    REMEMBER_COOKIE_SECURE = SESSION_COOKIE_SECURE
+    SESSION_COOKIE_SAMESITE = "Lax"
+    REMEMBER_COOKIE_HTTPONLY = True
 
     UPLOAD_FOLDER = os.path.join(BASE_DIR, "static", "uploads")
     EXPORT_FOLDER = os.path.join(BASE_DIR, "exports")
