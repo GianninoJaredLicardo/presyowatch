@@ -50,16 +50,26 @@
     <div class="title">Price Spike Detected!</div>
     <p>{{ spike.product_name }} at {{ spike.market_name }}: ₱{{ spike.reported_price|peso }}<br>
        — {{ '%.0f'|format(spike.spike_percent or 0) }}% above normal ({{ spike.status }})</p>
-    <div class="d-flex justify-content-around">
+    <div class="d-flex justify-content-around gap-1 flex-wrap">
       {% if spike.status == 'open' %}
       <form method="POST" action="{{ url_for('lgu.acknowledge_alert', alert_id=spike.alert_id) }}">
         <button class="btn-yellow btn-sm-pw" type="submit">Acknowledge</button>
       </form>
-      {% else %}
+      {% elif spike.status in ('acknowledged', 'escalated') %}
       <form method="POST" action="{{ url_for('lgu.resolve_alert', alert_id=spike.alert_id) }}">
         <button class="btn-yellow btn-sm-pw" type="submit">Resolve</button>
       </form>
       {% endif %}
+      
+      <!-- NEW ESCALATE BUTTON -->
+      {% if spike.status != 'escalated' %}
+      <form method="POST" action="{{ url_for('lgu.escalate_alert', alert_id=spike.alert_id) }}">
+        <button class="btn-danger-soft btn-sm-pw" style="background:#ff9800; color:white;" type="submit">Escalate</button>
+      </form>
+      {% else %}
+      <span class="pill" style="background:#ff9800; color:white; padding: 5px 10px; font-size: 0.8rem;">Escalated</span>
+      {% endif %}
+      
       <a class="btn-red btn-sm-pw" href="{{ url_for('lgu.report_detail', report_id=spike.report_id) }}">View Details</a>
     </div>
   </div>

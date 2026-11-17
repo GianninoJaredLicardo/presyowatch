@@ -45,7 +45,6 @@ def _users_for(reports):
 
 
 def _open_alerts():
-    # FIX: Make the query forgiving. Show anything that isn't explicitly resolved.
     return sorted(
         (a for a in Alert.all() if a.status not in ("resolved", "dismissed", None)),
         key=lambda a: a.created_at, reverse=True,
@@ -83,7 +82,7 @@ def dashboard():
         alert_count=len(open_alerts),
         vendor_count=len(vendors),
         verified_count=PriceReport.count(status="verified"),
-        spikes=open_alerts,  # <--- FIX: Passing the list instead of a single item
+        spikes=open_alerts,  
         events=events[:5],
     )
 
@@ -273,7 +272,6 @@ def srp_management():
             
             product = Product.get(product_id)
             log_action(current_user, "srp_updated", f"Updated SRP for {product.product_name if product else 'Unknown'} to ₱{srp_price}")
-            
             flash("SRP updated successfully and logged.", "success")
         else:
             flash("Please provide a valid product and SRP price.", "danger")
@@ -289,7 +287,6 @@ def srp_management():
             latest_srps[srp.product_id] = srp
 
     logs = sorted([l for l in AuditLog.all() if l.action == "srp_updated"], key=lambda l: l.created_at, reverse=True)[:10]
-
     return render_template("lgu_srp_management.html", products=products, latest_srps=latest_srps, logs=logs)
 
 
@@ -402,7 +399,7 @@ def warn_vendor(listing_id):
     return redirect(url_for("lgu.flagged_vendors"))
 
 
-# ---- subscription (LGU ADMIN ONLY) -------------------------------------------------
+# ---- subscription -------------------------------------------------
 def _subscription():
     sub = Subscription.first(user_id=current_user.user_id)
     if sub is None:
@@ -523,7 +520,7 @@ def cancel_subscription():
     return redirect(url_for("lgu.subscription"))
 
 
-# ---- manage: vendors + reports (LGU ADMIN ONLY) --------------------------------------
+# ---- manage ------------------------------------------------------
 @bp.route("/manage")
 @lgu_admin_only
 def manage():
@@ -632,10 +629,12 @@ def approve_vendor(vendor_id):
 def _alert_action(alert_id, status, label):
     alert = Alert.get_or_404(alert_id)
     alert.status = status
+    
     if status == "resolved":
         alert.is_resolved = True
         alert.resolved_by = current_user.user_id
         alert.resolved_at = datetime.utcnow()
+        
     alert.save()
     log_action(current_user, f"alert_{status}", f"Alert #{alert_id}: {alert.product_name}")
     flash(f"Alert {label}.", "success")
