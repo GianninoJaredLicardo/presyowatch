@@ -1,6 +1,5 @@
 import io
 import os
-import uuid
 import zipfile
 from collections import Counter, defaultdict
 from datetime import date, datetime, timedelta
@@ -17,6 +16,7 @@ from models import (
     Subscription, User,
 )
 from utils.helpers import get_settings, log_action, refresh_rules_for_product, role_required, save_settings
+from utils import file_store
 from utils.notifications import notify
 from utils.qr_generator import generate_qr_bytes, is_local_network_url, market_price_search_url, public_base_url
 from utils.report_generator import build_csv_report, build_pdf_report, build_xlsx_report
@@ -693,10 +693,9 @@ def generate_report():
         file_type = "pdf"
         data = build_pdf_report(rows, date_from, date_to, city_filter=market.market_name if market else "All Markets")
 
-    os.makedirs(current_app.config["EXPORT_FOLDER"], exist_ok=True)
-    stored = f"{uuid.uuid4().hex}.{file_type}"
-    with open(os.path.join(current_app.config["EXPORT_FOLDER"], stored), "wb") as fh:
-        fh.write(data)
+    mimetypes = {"pdf": "application/pdf", "csv": "text/csv",
+                 "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}
+    stored = file_store.save_bytes(data, mimetypes[file_type], owner_id=current_user.user_id, kind="report_export")
 
     title = f"{period.capitalize()} Report {date_from:%b %d}-{date_to:%d}" if date_from.month == date_to.month \
         else f"{period.capitalize()} Report {date_from:%b %d}-{date_to:%b %d}"
@@ -717,13 +716,22 @@ def download_report(export_id):
     export = ReportExport.get_or_404(export_id)
     allowed = export.generated_by == current_user.user_id or current_user.role == "admin" or (
         current_user.role == "dti_da" and export.shared_with_agency)
-    path = os.path.join(current_app.config["EXPORT_FOLDER"], os.path.basename(export.file_path))
-    if not allowed or not os.path.exists(path):
+    if not allowed:
         abort(404)
     mimetypes = {"pdf": "application/pdf", "csv": "text/csv",
                  "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}
-    return send_file(path, mimetype=mimetypes.get(export.file_type), as_attachment=True,
-                     download_name=f"{export.title or 'presyowatch-report'}.{export.file_type}")
+    name = f"{export.title or 'presyowatch-report'}.{export.file_type}"
+    if file_store.is_stored(export.file_path):
+        data, _meta = file_store.load(export.file_path)
+        if data is None:
+            abort(404)
+        return send_file(io.BytesIO(data), mimetype=mimetypes.get(export.file_type), as_attachment=True,
+                         download_name=name)
+    # Reports generated before exports moved to Firestore were saved on disk.
+    path = os.path.join(current_app.config["EXPORT_FOLDER"], os.path.basename(export.file_path or ""))
+    if not os.path.exists(path):
+        abort(404)
+    return send_file(path, mimetype=mimetypes.get(export.file_type), as_attachment=True, download_name=name)
 
 
 # ---- QR codes -----------------------------------------------------------------------

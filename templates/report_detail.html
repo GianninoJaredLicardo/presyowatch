@@ -18,7 +18,7 @@
   {% endif %}
   {% if report.verification_notes %}<div class="row-line"><span class="text-muted">Notes</span><span>{{ report.verification_notes }}</span></div>{% endif %}
   {% if report.photo_path %}
-    <img src="{{ url_for('static', filename='uploads/' ~ report.photo_path) }}" class="img-fluid rounded mt-3" style="max-height:300px" alt="Report photo">
+    <img src="{{ file_url(report.photo_path, 'uploads/') }}" class="img-fluid rounded mt-3" style="max-height:300px" alt="Report photo">
   {% endif %}
 </div>
 

@@ -49,6 +49,9 @@ def create_app():
 
     login_manager.init_app(app)
 
+    from utils.csrf import init_csrf
+    init_csrf(app)
+
     @login_manager.user_loader
     def load_user(user_id):
         return User.get(int(user_id))
@@ -60,6 +63,8 @@ def create_app():
     from routes.lgu import bp as lgu_bp
     from routes.admin import bp as admin_bp
     from routes.notifications import bp as notifications_bp
+    from routes.files import bp as files_bp
+    from utils.file_store import file_url
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(public_bp)
@@ -68,6 +73,8 @@ def create_app():
     app.register_blueprint(lgu_bp, url_prefix="/lgu")
     app.register_blueprint(admin_bp, url_prefix="/admin")
     app.register_blueprint(notifications_bp, url_prefix="/notifications")
+    app.register_blueprint(files_bp, url_prefix="/files")
+    app.jinja_env.globals["file_url"] = file_url
 
     app.jinja_env.filters["timeago"] = timeago
     app.jinja_env.filters["localtime"] = localtime

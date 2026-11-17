@@ -17,7 +17,7 @@
   <div class="price fs-5 my-1">₱{{ r.price|peso }}/{{ product.unit }}
     {% if r.spike_percent and r.is_spike %}<small class="text-danger fs-6">(+{{ '%.0f'|format(r.spike_percent) }}%)</small>{% endif %}</div>
   <div class="meta">{{ market.market_name }} · {{ user.full_name }}</div>
-  <div class="meta mb-2">{{ r.created_at|localtime }}{% if r.photo_path %} · <a href="{{ url_for('static', filename='uploads/' ~ r.photo_path) }}" target="_blank"><i class="fa-solid fa-camera"></i> Photo attached</a>{% endif %}</div>
+  <div class="meta mb-2">{{ r.created_at|localtime }}{% if r.photo_path %} · <a href="{{ file_url(r.photo_path, 'uploads/') }}" target="_blank"><i class="fa-solid fa-camera"></i> Photo attached</a>{% endif %}</div>
 
   <form method="POST">
     <input type="hidden" name="next" value="{{ url_for('lgu.verification_queue', status=status) }}">

@@ -1,19 +1,17 @@
-import os
-import uuid
 from collections import defaultdict
 from datetime import date, datetime, timedelta
 
 from flask import (
-    Blueprint, render_template, request, redirect, url_for, flash, current_app, jsonify
+    Blueprint, render_template, request, redirect, url_for, flash, jsonify
 )
 from flask_login import current_user, login_required
-from werkzeug.utils import secure_filename
 
 from models import Alert, Market, PriceAlertRule, PriceReport, Product, Review, User
 from utils.helpers import (
     market_price_board, refresh_alert_rules, role_required, vendor_stats,
 )
 from utils.spike_detection import create_report
+from utils import file_store
 from utils.notifications import notify
 
 bp = Blueprint("resident", __name__)
@@ -216,11 +214,10 @@ def report_price():
 
         photo_path = None
         if photo and photo.filename and allowed_file(photo.filename):
-            ext = photo.filename.rsplit(".", 1)[1].lower()
-            filename = secure_filename(f"{uuid.uuid4().hex}.{ext}")
-            os.makedirs(current_app.config["UPLOAD_FOLDER"], exist_ok=True)
-            photo.save(os.path.join(current_app.config["UPLOAD_FOLDER"], filename))
-            photo_path = filename
+            try:
+                photo_path = file_store.save_photo(photo, owner_id=current_user.user_id, kind="report_photo")
+            except file_store.InvalidImage:
+                flash("The photo couldn't be read, so the report was sent without it.", "warning")
 
         _, is_spike = create_report(
             current_user.user_id, product_id, market_id, price,
@@ -339,15 +336,17 @@ def upload_profile_picture():
         flash("Only PNG, JPG, and JPEG files are allowed.", "danger")
         return redirect(url_for("resident.profile"))
 
-    ext = photo.filename.rsplit(".", 1)[1].lower()
-    filename = secure_filename(f"profile_{current_user.user_id}_{uuid.uuid4().hex[:8]}.{ext}")
+    try:
+        ref = file_store.save_photo(photo, owner_id=current_user.user_id, kind="profile_pic", max_side=512)
+    except file_store.InvalidImage:
+        flash("That file isn't a valid image. Please choose a PNG or JPG photo.", "danger")
+        return redirect(url_for("resident.profile"))
 
-    profile_dir = os.path.join(current_app.config["UPLOAD_FOLDER"], "profile")
-    os.makedirs(profile_dir, exist_ok=True)
-    photo.save(os.path.join(profile_dir, filename))
-
-    current_user.profile_pic = f"uploads/profile/{filename}"
+    old = current_user.profile_pic
+    current_user.profile_pic = ref
     current_user.save()
+    if file_store.is_stored(old):
+        file_store.delete(old)  # don't keep replaced profile pictures around
 
     flash("Profile picture updated successfully!", "success")
     return redirect(url_for("resident.profile"))
