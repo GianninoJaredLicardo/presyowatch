@@ -1,28 +1,38 @@
 {% extends "base.html" %}
 {% from "_ui.html" import status_pill %}
-{% from "_vendor_picker.html" import vendor_picker, vendor_picker_assets %}
-{% block title %}Report a Price — PresyoWatch{{ vendor_picker_assets() }}
-{% endblock %}
+{% block title %}Report a Price — PresyoWatch{% endblock %}
 {% block content %}
 <h4 class="page-title">Report a Price</h4>
 
-<form method="POST" enctype="multipart/form-data" class="pw-card">
+<form method="POST" enctype="multipart/form-data" class="pw-card" id="reportForm">
   <div class="field">
-    <label class="form-label">Commodity</label>
-    <input class="input-pw" type="text" name="commodity_name" placeholder="Select Commodity (ex. White Rice)" required maxlength="100">
+    <label class="form-label" for="rpMarket">Market/Location</label>
+    <select class="input-pw" id="rpMarket" name="market_id" required>
+      <option value="" selected disabled>Select a market</option>
+      {% for city, markets in markets_by_city.items() %}
+      <optgroup label="{{ city }}">
+        {% for m in markets %}<option value="{{ m.market_id }}">{{ m.market_name }}</option>{% endfor %}
+      </optgroup>
+      {% endfor %}
+    </select>
+    {% if not markets_by_city %}<div class="small-note mt-1">No markets are registered yet.</div>{% endif %}
   </div>
   <div class="field">
-    <label class="form-label">Price per unit</label>
-    <input class="input-pw" type="number" step="0.01" min="0.01" name="price" placeholder="₱" required>
+    <label class="form-label" for="rpVendor">Vendor / Store</label>
+    <select class="input-pw" id="rpVendor" name="vendor_id" required disabled>
+      <option value="">Choose a market first</option>
+    </select>
   </div>
   <div class="field">
-    <label class="form-label">Market/Location</label>
-    <input class="input-pw" type="text" id="marketName" name="market_name" placeholder="e.g. Carbon Market" required maxlength="150">
+    <label class="form-label" for="rpItem">Commodity</label>
+    <select class="input-pw" id="rpItem" name="listing_id" required disabled>
+      <option value="">Choose a vendor first</option>
+    </select>
   </div>
   <div class="field">
-    <label class="form-label" for="reportVendor">Vendor / Store <span class="fl-opt">optional</span></label>
-    {{ vendor_picker(vendor_choices, market_input="marketName", input_id="reportVendor") }}
-    <div class="small-note mt-1">Type to search registered vendors and stores. Only vendors on the list can be chosen.</div>
+    <label class="form-label" for="rpPrice">Price per unit <span class="fl-opt" id="rpUnit"></span></label>
+    <input class="input-pw" id="rpPrice" type="number" step="0.01" min="0.01" name="price" placeholder="₱" required>
+    <div class="small-note mt-1" id="rpListed" hidden></div>
   </div>
   <div class="field">
     <label class="form-label">Date Reported</label>
@@ -48,4 +58,62 @@
   </div>
   {% else %}<div class="text-muted text-center">No reports yet.</div>{% endfor %}
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(() => {
+  const vendors = {{ vendor_options|tojson }};
+  const market = document.getElementById('rpMarket');
+  const vendor = document.getElementById('rpVendor');
+  const item = document.getElementById('rpItem');
+  const unit = document.getElementById('rpUnit');
+  const listed = document.getElementById('rpListed');
+  const peso = (n) => '₱' + Number(n).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  // Rebuild a dropdown; it stays disabled while there is nothing to choose.
+  function fill(select, placeholder, options) {
+    select.innerHTML = '';
+    const first = new Option(placeholder, '', true, true);
+    first.disabled = options.length > 0;
+    select.add(first);
+    options.forEach(([value, label]) => select.add(new Option(label, value)));
+    select.disabled = options.length === 0;
+  }
+
+  function showItem() {
+    const v = vendors.find((x) => String(x.id) === vendor.value);
+    const it = v && v.items.find((x) => String(x.id) === item.value);
+    unit.textContent = it ? 'per ' + it.unit : '';
+    listed.hidden = !(it && it.price);
+    if (it && it.price) listed.textContent = "Vendor's listed price: " + peso(it.price) + ' / ' + it.unit;
+  }
+
+  market.addEventListener('change', () => {
+    const list = vendors.filter((v) => String(v.market_id) === market.value);
+    fill(vendor, list.length ? 'Select a vendor or store' : 'No registered vendors in this market yet',
+         list.map((v) => [v.id, v.name]));
+    fill(item, 'Choose a vendor first', []);
+    showItem();
+  });
+
+  vendor.addEventListener('change', () => {
+    const v = vendors.find((x) => String(x.id) === vendor.value);
+    const items = v ? v.items : [];
+    fill(item, items.length ? 'Select a commodity' : 'This vendor has no commodities listed yet',
+         items.map((i) => [i.id, i.name + ' (' + i.unit + ')']));
+    showItem();
+  });
+
+  item.addEventListener('change', showItem);
+
+  // Browser back/refresh can keep old selections: rebuild the lists from them.
+  if (market.value) {
+    const keepVendor = vendor.value, keepItem = item.value;
+    market.dispatchEvent(new Event('change'));
+    if (keepVendor) { vendor.value = keepVendor; vendor.dispatchEvent(new Event('change')); }
+    if (keepItem) { item.value = keepItem; showItem(); }
+  }
+})();
+</script>
 {% endblock %}

@@ -6,7 +6,7 @@ from flask import (
 )
 from flask_login import current_user, login_required
 
-from models import Alert, Market, PriceAlertRule, PriceReport, Product, Review, User
+from models import Alert, Listing, Market, PriceAlertRule, PriceReport, Product, Review, User
 from utils.helpers import (
     market_price_board, refresh_alert_rules, role_required, vendor_stats,
 )
@@ -15,6 +15,8 @@ from utils import file_store
 from utils.notifications import notify
 
 bp = Blueprint("resident", __name__)
+
+CITIES = ("Cebu City", "Lapu-Lapu City")
 
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg"}
 resident_only = role_required("resident")
@@ -163,55 +165,45 @@ def clear_activity():
 @bp.route("/report/new", methods=["GET", "POST"])
 @resident_only
 def report_price():
-    products = sorted(Product.all(), key=lambda p: p.product_name)
+    vendors, markets = _registered_vendors()
 
     if request.method == "POST":
-        commodity_name = request.form.get("commodity_name", "").strip()
-        market_name = request.form.get("market_name", "").strip()
+        back = redirect(url_for("resident.report_price"))
+        market = markets.get(request.form.get("market_id", type=int))
+        vendor = next((v for v in vendors if v.user_id == request.form.get("vendor_id", type=int)), None)
+        listing = Listing.get(request.form.get("listing_id", type=int) or 0)
         price = request.form.get("price", type=float)
-        vendor_id = request.form.get("vendor_id", type=int)
-        vendor_name = None
-        if vendor_id:
-            vendor = User.get(vendor_id)
-            if vendor is None or vendor.role != "vendor" or vendor.vendor_status == "suspended":
-                flash("Please choose a registered vendor from the list.", "danger")
-                return redirect(url_for("resident.report_price"))
-            vendor_name = vendor.business_name or vendor.full_name
+
+        if market is None:
+            flash("Please choose a market from the list.", "danger")
+            return back
+        if vendor is None or vendor.market_id != market.market_id:
+            flash("Please choose a registered vendor in that market.", "danger")
+            return back
+        if listing is None or listing.vendor_id != vendor.user_id:
+            flash("Please choose one of that vendor's commodities.", "danger")
+            return back
+        if price is None or not price > 0:
+            flash("Enter a valid price per unit.", "danger")
+            return back
         try:
             report_date = _parse_date(request.form.get("report_date") or str(date.today()))
         except ValueError:
             flash("Invalid date.", "danger")
-            return redirect(url_for("resident.report_price"))
-        photo = request.files.get("photo")
+            return back
+        if report_date > date.today():
+            flash("The report date can't be in the future.", "danger")
+            return back
 
-        if not commodity_name or not market_name or price is None or not price > 0:
-            flash("Commodity, market, and price are required.", "danger")
-            return redirect(url_for("resident.report_price"))
-
-        product = next(
-            (p for p in products if p.product_name.lower() == commodity_name.lower()),
-            None
-        )
+        # Reports are tracked per commodity: use the listing's linked commodity, else one with the same name.
+        product = Product.get(listing.product_id) if listing.product_id else None
         if product is None:
-            product = Product(product_name=commodity_name, unit="kg", category="others")
-            product.save()
-            products = sorted(Product.all(), key=lambda p: p.product_name)
+            product = next((p for p in Product.all() if p.product_name.lower() == listing.name.lower()), None)
+        if product is None:
+            product = Product(product_name=listing.name, unit=listing.unit or "kg",
+                              category=(listing.category or "others").lower()).save()
 
-        market = next(
-            (m for m in Market.all() if m.market_name.lower() == market_name.lower()),
-            None
-        )
-        if market is None:
-            market = Market(
-                market_name=market_name,
-                city=current_user.city or "Cebu City",
-                address=market_name
-            )
-            market.save()
-
-        product_id = product.product_id
-        market_id = market.market_id
-
+        photo = request.files.get("photo")
         photo_path = None
         if photo and photo.filename and allowed_file(photo.filename):
             try:
@@ -220,8 +212,8 @@ def report_price():
                 flash("The photo couldn't be read, so the report was sent without it.", "warning")
 
         _, is_spike = create_report(
-            current_user.user_id, product_id, market_id, price,
-            report_date, photo_path, vendor_name
+            current_user.user_id, product.product_id, market.market_id, price,
+            report_date, photo_path, vendor.business_name or vendor.full_name,
         )
         if is_spike:
             flash(
@@ -230,9 +222,25 @@ def report_price():
                 "warning",
             )
         else:
-            flash("Price report submitted. It is now pending LGU verification.", "success")
-        return redirect(url_for("resident.report_price"))
+            flash(f"Price report for {listing.name} submitted. It is now pending LGU verification.", "success")
+        return back
 
+    # Form options: markets by city -> vendors in each market -> each vendor's commodities.
+    listings_by_vendor = {}
+    for l in Listing.all():
+        listings_by_vendor.setdefault(l.vendor_id, []).append(l)
+    vendor_options = [
+        {"id": v.user_id, "market_id": v.market_id, "name": v.business_name or v.full_name or f"Vendor #{v.user_id}",
+         "items": [{"id": l.listing_id, "name": l.name, "unit": l.unit or "unit", "price": l.price}
+                   for l in sorted(listings_by_vendor.get(v.user_id, []), key=lambda l: (l.name or "").lower())]}
+        for v in vendors if v.market_id in markets
+    ]
+    city_order = {c: i for i, c in enumerate(CITIES)}
+    markets_by_city = {}
+    for m in sorted(markets.values(), key=lambda m: (city_order.get(m.city, 99), m.city or "", m.market_name.lower())):
+        markets_by_city.setdefault(m.city or "Other", []).append(m)
+
+    products = sorted(Product.all(), key=lambda p: p.product_name)
     recent = sorted(
         PriceReport.find(user_id=current_user.user_id),
         key=lambda r: r.created_at,
@@ -244,8 +252,8 @@ def report_price():
         r.product = product_map.get(r.product_id)
         r.market = market_map.get(r.market_id)
     return render_template(
-        "report_price.html", products=products, today=date.today(), recent=recent,
-        vendor_choices=_vendor_choices(),
+        "report_price.html", today=date.today(), recent=recent,
+        markets_by_city=markets_by_city, vendor_options=vendor_options,
     )
 
 
