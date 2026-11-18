@@ -317,9 +317,18 @@ def edit_account():
         current_user.save()
         log_action(current_user, "edit_profile")
         flash("Profile updated.", "success")
-        return redirect(url_for("public.home"))
+        return redirect(_profile_url())
 
-    return render_template("edit_account.html", markets=markets)
+    return render_template(
+        "edit_account.html", back_url=_profile_url(),
+        markets_options=[(m.market_id, m.market_name, m.city or "") for m in markets],
+    )
+
+
+def _profile_url():
+    endpoint = {"resident": "resident.profile", "vendor": "vendor.profile",
+                "lgu_staff": "lgu.profile", "dti_da": "lgu.profile"}.get(current_user.role)
+    return url_for(endpoint) if endpoint else url_for("public.home")
 
 
 @bp.route("/forgot-password", methods=["GET", "POST"])

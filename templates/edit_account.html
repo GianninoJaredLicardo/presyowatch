@@ -1,43 +1,73 @@
 {% extends "base.html" %}
-{% from "_ui.html" import name_fields %}
+{% from "_ui.html" import fl, fl_select, name_fields, segmented %}
 {% block title %}Edit Profile — PresyoWatch{% endblock %}
 {% block content %}
 {% set u = nav_current_user %}
-<h4 class="page-title">Edit Profile</h4>
-<form method="POST" class="pw-card">
-  <label class="form-label">{{ 'Owner name' if u.role == 'vendor' else 'Name' }}</label>
-  {{ name_fields(u) }}
-  <div class="field"><label class="form-label">Email</label>
-    <input class="input-pw" type="email" name="email" value="{{ u.email }}" required></div>
-  <div class="field"><label class="form-label">Contact number</label>
-    <input class="input-pw" name="contact_number" value="{{ u.contact_number or '' }}"></div>
+{% set is_vendor = u.role == 'vendor' %}
+{% set is_staff = u.role in ['lgu_staff', 'dti_da'] %}
+{% set role_label = {'resident': 'Resident', 'vendor': 'Market Vendor', 'lgu_staff': 'LGU Staff',
+                     'dti_da': 'DTI / DA', 'admin': 'Administrator'}.get(u.role, u.role|title) %}
 
-  {% if u.role == 'vendor' %}
-    <div class="field"><label class="form-label">Business name</label>
-      <input class="input-pw" name="business_name" value="{{ u.business_name or '' }}" required></div>
-    <div class="field"><label class="form-label">Business address</label>
-      <input class="input-pw" name="business_address" value="{{ u.business_address or '' }}"></div>
-    <div class="field"><label class="form-label">Market</label>
-      <select class="input-pw" name="market_id" required>
-        {% for m in markets %}<option value="{{ m.market_id }}" {{ 'selected' if u.market_id == m.market_id }}>{{ m.market_name }} — {{ m.city }}</option>{% endfor %}
-      </select></div>
+<div class="d-flex align-items-center gap-3 mb-3">
+  <a href="{{ back_url }}" class="btn-pw btn-sm-pw" aria-label="Back"><i class="fa-solid fa-arrow-left"></i></a>
+  <h4 class="page-title m-0">Edit Profile</h4>
+</div>
+
+<div class="ep-head">
+  <div class="ep-avatar">
+    {% if u.profile_pic %}<img src="{{ file_url(u.profile_pic) }}" alt="">
+    {% else %}{{ ((u.business_name if is_vendor and u.business_name else u.first_name or u.full_name or '?')[:1])|upper }}{% endif %}
+  </div>
+  <div class="ep-who">
+    <b>{{ u.business_name if is_vendor and u.business_name else u.full_name }}</b>
+    <small>{{ u.email }}</small>
+    <span class="ep-role"><i class="fa-solid fa-{{ 'store' if is_vendor else ('building-columns' if is_staff else 'user') }}"></i> {{ role_label }}</span>
+  </div>
+</div>
+
+<form method="POST" class="pw-card white ep-card" data-modern-form>
+  <div class="form-section"><i class="fa-solid fa-user"></i> {{ 'Owner' if is_vendor else 'Personal' }} information</div>
+  {{ name_fields(u, owner=is_vendor) }}
+
+  <div class="form-section"><i class="fa-solid fa-address-book"></i> Contact</div>
+  {{ fl('email', 'Email address', 'envelope', type='email', required=true, value=u.email, autocomplete='email') }}
+  {{ fl('contact_number', 'Contact number', 'phone', type='tel', value=u.contact_number, autocomplete='tel',
+        attrs='inputmode="tel" maxlength="20"') }}
+
+  {% if is_vendor %}
+    <div class="form-section"><i class="fa-solid fa-store"></i> Store information</div>
+    {{ fl('business_name', 'Business / store name', 'store', required=true, value=u.business_name, attrs='maxlength="100"') }}
+    {{ fl_select('market_id', 'Market', 'location-dot', markets_options, required=true, selected=u.market_id or '',
+                 fancy=true, option_icon='store') }}
+    {{ fl('business_address', 'Stall no. / address', 'map-pin', value=u.business_address, attrs='maxlength="150"') }}
   {% else %}
-    {% if u.role in ['lgu_staff', 'dti_da'] %}
-      <div class="field"><label class="form-label">Organization</label>
-        <input class="input-pw" name="org_name" value="{{ u.org_name or '' }}"></div>
-      <div class="field"><label class="form-label">Division</label>
-        <input class="input-pw" name="division" value="{{ u.division or '' }}"></div>
-      <div class="field"><label class="form-label">Contact person / title</label>
-        <input class="input-pw" name="contact_person" value="{{ u.contact_person or '' }}"></div>
+    {% if is_staff %}
+      <div class="form-section"><i class="fa-solid fa-building-columns"></i> Organization</div>
+      {{ fl('org_name', 'Organization', 'building-columns', value=u.org_name, attrs='maxlength="120"') }}
+      <div class="fl-row">
+        {{ fl('division', 'Division', 'sitemap', value=u.division, attrs='maxlength="80"') }}
+        {{ fl('contact_person', 'Position / title', 'id-badge', value=u.contact_person, attrs='maxlength="80"') }}
+      </div>
     {% endif %}
-    <div class="field"><label class="form-label">Location</label>
-      <input class="input-pw" name="address" value="{{ u.address or '' }}"></div>
-    <div class="field"><label class="form-label">City</label>
-      <select class="input-pw" name="city">
-        <option value="">—</option>
-        {% for c in ['Cebu City', 'Lapu-Lapu City'] %}<option {{ 'selected' if u.city == c }}>{{ c }}</option>{% endfor %}
-      </select></div>
+    <div class="form-section"><i class="fa-solid fa-location-dot"></i> Location</div>
+    <div class="ep-label">City</div>
+    {{ segmented('city', [('Cebu City', 'Cebu City', 'city'), ('Lapu-Lapu City', 'Lapu-Lapu City', 'water')], u.city) }}
+    {{ fl('address', 'Barangay / street address', 'house', value=u.address, autocomplete='street-address',
+          attrs='maxlength="150"') }}
   {% endif %}
-  <button class="btn-pw btn-block" type="submit">Save Changes</button>
+
+  <button class="btn-pw btn-block btn-submit mt-3" type="submit">
+    <span><i class="fa-solid fa-check"></i> Save Changes</span>
+  </button>
+  <a href="{{ back_url }}" class="ep-cancel">Cancel</a>
 </form>
+
+<a href="{{ url_for('auth.change_password') }}" class="pw-card action-card mt-3">
+  <span class="action-icon"><i class="fa-solid fa-key"></i></span>
+  <div>
+    <div class="action-title">Change password</div>
+    <div class="action-sub">Keep your account secure</div>
+  </div>
+  <i class="fa-solid fa-chevron-right action-go"></i>
+</a>
 {% endblock %}

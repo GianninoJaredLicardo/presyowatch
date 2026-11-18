@@ -72,9 +72,17 @@
   {% else %}
     <div class="text-center text-muted">No price data yet.</div>
   {% endif %}
-  <div class="text-end mt-2">
-    <a href="{{ url_for('resident.price_history') }}" class="small">View price trends →</a>
-  </div>
+  <a href="{{ url_for('resident.price_history') }}" class="trend-cta">
+    <span class="trend-cta-icon"><i class="fa-solid fa-chart-line"></i></span>
+    <span class="trend-cta-text">
+      <b>View price trends</b>
+      <small>Charts, weekly changes &amp; price history</small>
+    </span>
+    <svg class="trend-cta-spark" viewBox="0 0 120 40" aria-hidden="true" preserveAspectRatio="none">
+      <path d="M0 32 L18 26 L34 29 L52 17 L70 21 L88 9 L104 13 L120 4" />
+    </svg>
+    <span class="trend-cta-go"><i class="fa-solid fa-arrow-right"></i></span>
+  </a>
 </div>
 
 <!-- Recent Activity -->

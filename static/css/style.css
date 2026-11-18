@@ -926,3 +926,165 @@ select.fl-input option:checked { background: var(--primary-soft); color: var(--p
   .combo-panel, .combo-chevron { transition: none; }
   .combo.shake .combo-control, .combo.attention .combo-input, .combo-alert { animation: none; }
 }
+
+/* ---- "View price trends" button (resident dashboard) ---- */
+.trend-cta {
+  position: relative; overflow: hidden; display: flex; align-items: center; gap: 12px;
+  margin-top: 14px; padding: 12px 12px 12px 12px; border-radius: 16px; text-decoration: none;
+  color: #fff; background: linear-gradient(135deg, var(--primary) 0%, #2a9a5a 100%);
+  box-shadow: 0 10px 22px -10px rgba(31, 122, 69, .55);
+  transition: transform .18s ease, box-shadow .18s ease;
+}
+.trend-cta:hover, .trend-cta:focus-visible { color: #fff; transform: translateY(-2px); box-shadow: 0 16px 28px -12px rgba(31, 122, 69, .6); }
+.trend-cta:active { transform: translateY(0) scale(.99); }
+.trend-cta:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.trend-cta-icon {
+  flex: none; display: grid; place-items: center; width: 42px; height: 42px; border-radius: 13px;
+  background: rgba(255, 255, 255, .18); font-size: 1.05rem; backdrop-filter: blur(2px);
+}
+.trend-cta-text { position: relative; z-index: 1; flex: 1; min-width: 0; line-height: 1.25; }
+.trend-cta-text b { display: block; font-size: .98rem; }
+.trend-cta-text small { display: block; font-size: .76rem; opacity: .85; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.trend-cta-spark {
+  position: absolute; right: 44px; bottom: 6px; width: 120px; height: 40px; opacity: .28; pointer-events: none;
+}
+.trend-cta-spark path {
+  fill: none; stroke: #fff; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round;
+  stroke-dasharray: 160; stroke-dashoffset: 0;
+}
+.trend-cta:hover .trend-cta-spark path { animation: trendDraw .9s ease; }
+.trend-cta-go {
+  position: relative; z-index: 1; flex: none; display: grid; place-items: center; width: 34px; height: 34px;
+  border-radius: 50%; background: #fff; color: var(--primary); font-size: .85rem; transition: transform .18s ease;
+}
+.trend-cta:hover .trend-cta-go { transform: translateX(3px); }
+@keyframes trendDraw { from { stroke-dashoffset: 160; } to { stroke-dashoffset: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .trend-cta, .trend-cta-go { transition: none; }
+  .trend-cta:hover .trend-cta-spark path { animation: none; }
+}
+
+/* ---- Edit Profile ---- */
+.ep-head {
+  display: flex; align-items: center; gap: 14px; margin-bottom: 14px; padding: 16px;
+  border-radius: var(--radius); color: #fff;
+  background: linear-gradient(135deg, var(--primary) 0%, #2a9a5a 100%);
+  box-shadow: 0 12px 26px -14px rgba(31, 122, 69, .6);
+}
+.ep-avatar {
+  flex: none; display: grid; place-items: center; width: 62px; height: 62px; overflow: hidden;
+  border-radius: 50%; border: 3px solid rgba(255, 255, 255, .55); background: rgba(255, 255, 255, .2);
+  font-size: 1.6rem; font-weight: 800;
+}
+.ep-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.ep-who { min-width: 0; line-height: 1.3; }
+.ep-who b { display: block; font-size: 1.08rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ep-who small { display: block; opacity: .85; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ep-role {
+  display: inline-flex; align-items: center; gap: 6px; margin-top: 6px; padding: 3px 10px;
+  border-radius: 999px; background: rgba(255, 255, 255, .2); font-size: .72rem; font-weight: 600;
+}
+.ep-card .form-section:first-of-type { margin-top: 0; }
+.ep-label { margin: 2px 0 6px 4px; font-size: .8rem; font-weight: 600; color: var(--fl-label, #7d8778); }
+.ep-cancel {
+  display: block; margin-top: 10px; padding: 10px; border-radius: 12px; text-align: center;
+  font-weight: 600; color: var(--muted); text-decoration: none; transition: background .15s, color .15s;
+}
+.ep-cancel:hover { background: var(--chip); color: var(--ink); }
+
+/* ---- Price Trends ---- */
+.pt-filters { display: flex; gap: 10px; align-items: flex-start; margin-bottom: 12px; }
+.pt-commodity { flex: 1; min-width: 0; }
+.pt-range {
+  flex: none; display: flex; gap: 2px; padding: 4px; border-radius: 14px; background: #e9eee5; height: 50px;
+}
+.pt-range label { margin: 0; position: relative; }
+.pt-range input { position: absolute; opacity: 0; pointer-events: none; }
+.pt-range span {
+  display: grid; place-items: center; height: 100%; min-width: 44px; padding: 0 8px; border-radius: 10px;
+  font-size: .82rem; font-weight: 700; color: var(--muted); cursor: pointer; transition: background .15s, color .15s;
+}
+.pt-range span:hover { color: var(--primary); }
+.pt-range input:checked + span { background: #fff; color: var(--primary); box-shadow: 0 1px 4px rgba(0, 0, 0, .12); }
+.pt-range input:focus-visible + span { outline: 2px solid var(--primary); outline-offset: 1px; }
+
+.pt-card { padding: 18px 16px 14px; }
+.pt-hero { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+.pt-name { font-size: .78rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.pt-price { margin-top: 2px; font-size: 2rem; font-weight: 800; letter-spacing: -.02em; color: var(--title); line-height: 1.1; }
+.pt-price small { margin-left: 4px; font-size: .9rem; font-weight: 600; color: var(--muted); letter-spacing: 0; }
+.pt-asof { margin-top: 4px; font-size: .78rem; color: var(--muted); }
+.pt-change {
+  flex: none; display: inline-flex; flex-direction: column; align-items: flex-end; gap: 1px;
+  padding: 7px 11px; border-radius: 12px; font-size: .85rem; font-weight: 700; white-space: nowrap;
+}
+.pt-change small { font-size: .68rem; font-weight: 500; opacity: .8; }
+/* For shoppers, a rising price is the warning. Icon + word carry the meaning, not just color. */
+.pt-change.is-up { background: var(--red-soft); color: var(--red-dark); }
+.pt-change.is-down { background: var(--primary-soft); color: var(--primary-dark); }
+.pt-change.is-flat { background: var(--chip); color: var(--muted); }
+
+.pt-legend { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 14px; font-size: .78rem; color: var(--muted); }
+.pt-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.pt-legend b { color: var(--ink); }
+.pt-key { display: inline-block; width: 18px; height: 0; border-top: 2.5px solid #1f7a45; border-radius: 2px; }
+.pt-key-srp { border-top: 2px dashed #c27c0e; }
+
+.pt-chart { position: relative; height: 240px; margin: 14px -4px 4px; }
+.pt-empty {
+  position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 4px; padding: 0 24px; text-align: center; color: var(--muted); font-size: .85rem;
+  border: 1px dashed var(--line-strong); border-radius: 14px; background: var(--surface-2);
+}
+.pt-empty i { font-size: 1.6rem; color: #b5bdb0; margin-bottom: 4px; }
+.pt-empty b { color: var(--ink); font-size: .95rem; }
+.pt-loading { position: absolute; inset: 0; display: grid; place-items: center; }
+.pt-loading[hidden] { display: none; }
+.pt-loading span {
+  width: 28px; height: 28px; border-radius: 50%; border: 3px solid var(--primary-soft); border-top-color: var(--primary);
+  animation: ptSpin .8s linear infinite;
+}
+@keyframes ptSpin { to { transform: rotate(360deg); } }
+
+.pt-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 12px; }
+.pt-stats div { padding: 10px 8px; border-radius: 12px; background: var(--surface-2); text-align: center; min-width: 0; }
+.pt-stats small { display: block; font-size: .68rem; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+.pt-stats b { display: block; margin-top: 2px; font-size: .9rem; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.pt-table { margin-top: 12px; }
+.pt-table summary {
+  list-style: none; cursor: pointer; padding: 8px 4px; font-size: .84rem; font-weight: 600; color: var(--primary);
+}
+.pt-table summary::-webkit-details-marker { display: none; }
+.pt-table summary i { margin-right: 6px; }
+.pt-table table { width: 100%; font-size: .84rem; border-collapse: collapse; }
+.pt-table th { padding: 8px 6px; font-size: .7rem; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); border-bottom: 1px solid var(--line); }
+.pt-table td { padding: 8px 6px; border-bottom: 1px solid var(--line); color: var(--ink); }
+.pt-table tbody { display: block; max-height: 260px; overflow-y: auto; }
+.pt-table thead, .pt-table tbody tr { display: table; width: 100%; table-layout: fixed; }
+
+@media (max-width: 380px) {
+  .pt-stats { grid-template-columns: repeat(2, 1fr); }
+  .pt-range span { min-width: 38px; }
+}
+@media (prefers-reduced-motion: reduce) { .pt-loading span { animation-duration: 2s; } }
+
+.pt-ov-head { margin-bottom: 6px; }
+.pt-ov-row {
+  display: flex; align-items: center; gap: 10px; width: 100%; padding: 12px 6px; text-align: left;
+  border: 0; border-top: 1px solid var(--line); background: none; border-radius: 0; transition: background .12s;
+}
+.pt-ov-row:first-child { border-top: 0; }
+.pt-ov-row:hover { background: var(--surface-2); border-radius: 12px; }
+.pt-ov-row:focus-visible { outline: 2px solid var(--primary); border-radius: 12px; }
+.pt-ov-name { flex: 1; min-width: 0; }
+.pt-ov-name b, .pt-ov-price b { display: block; color: var(--ink); font-size: .92rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pt-ov-name small, .pt-ov-price small { font-size: .72rem; color: var(--muted); }
+.pt-ov-price { flex: none; text-align: right; min-width: 70px; }
+.pt-ov-row .pt-change { min-width: 82px; padding: 5px 8px; font-size: .76rem; flex-direction: row; justify-content: center; gap: 4px; }
+.pt-spark { flex: none; width: 72px; height: 26px; }
+.pt-spark path { fill: none; stroke: #1f7a45; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.pt-spark circle { fill: #1f7a45; stroke: #fff; stroke-width: 1.5; }
+.pt-empty.pt-empty-inline { position: static; padding: 28px 20px; }
+@media (max-width: 400px) { .pt-spark { display: none; } }
+.pt-price:has(#ptLatest:empty), .pt-asof:empty { display: none; }

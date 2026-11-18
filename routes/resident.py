@@ -6,7 +6,7 @@ from flask import (
 )
 from flask_login import current_user, login_required
 
-from models import Alert, Listing, Market, PriceAlertRule, PriceReport, Product, Review, User
+from models import Alert, DtiSrp, Listing, Market, PriceAlertRule, PriceReport, Product, Review, User
 from utils.helpers import (
     market_price_board, refresh_alert_rules, role_required, vendor_stats,
 )
@@ -403,7 +403,9 @@ def submit_feedback():
 def price_history():
     product_id = request.args.get("product_id", type=int)
     products = sorted(Product.all(), key=lambda p: p.product_name)
-    return render_template("price_history.html", products=products, selected_product=product_id)
+    days = request.args.get("days", 30, type=int)
+    return render_template("price_history.html", products=products, selected_product=product_id,
+                           days=days if days in (7, 30, 90) else 30)
 
 
 # ---- CHANGED: Allows Vendors to fetch chart data too ----
@@ -411,12 +413,31 @@ def price_history():
 @login_required
 def price_history_data():
     product_id = request.args.get("product_id", type=int)
-    days = request.args.get("days", 30, type=int)
+    days = max(1, min(request.args.get("days", 30, type=int), 365))
     since = date.today() - timedelta(days=days)
 
     equals = {"status": "verified"}
     if product_id:
         equals["product_id"] = product_id
+
+    if not product_id:
+        # Overview: each commodity on its own (averaging different commodities together is meaningless).
+        by_product = defaultdict(lambda: defaultdict(list))
+        for r in PriceReport.find(**equals):
+            if r.report_date >= since:
+                by_product[r.product_id][r.report_date].append(float(r.price))
+        products = Product.index()
+        overview = []
+        for pid, days_map in by_product.items():
+            p = products.get(pid)
+            if p is None:
+                continue
+            series = [round(sum(v) / len(v), 2) for _, v in sorted(days_map.items())]
+            overview.append({"id": pid, "name": p.product_name, "unit": p.unit, "values": series,
+                             "count": sum(len(v) for v in days_map.values()),
+                             "last_date": str(max(days_map))})
+        overview.sort(key=lambda o: o["name"].lower())
+        return jsonify({"overview": overview})
 
     prices_by_day = defaultdict(list)
     for r in PriceReport.find(**equals):
@@ -424,7 +445,17 @@ def price_history_data():
             prices_by_day[r.report_date].append(float(r.price))
 
     days_sorted = sorted(prices_by_day)
+    product = Product.get(product_id) if product_id else None
+    srp = None
+    if product:
+        bulletins = [b for b in DtiSrp.find(product_id=product_id) if b.srp_price]
+        if bulletins:
+            srp = float(max(bulletins, key=lambda b: b.bulletin_date or date.min).srp_price)
     return jsonify({
         "labels": [str(d) for d in days_sorted],
         "values": [round(sum(prices_by_day[d]) / len(prices_by_day[d]), 2) for d in days_sorted],
+        "counts": [len(prices_by_day[d]) for d in days_sorted],
+        "unit": product.unit if product else None,
+        "name": product.product_name if product else None,
+        "srp": srp,
     })

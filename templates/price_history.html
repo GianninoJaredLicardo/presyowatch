@@ -1,43 +1,299 @@
 {% extends "base.html" %}
 {% block title %}Price Trends — PresyoWatch{% endblock %}
 {% block content %}
-<h4 class="page-title">Price History &amp; Trends</h4>
+{% set home = url_for('vendor.dashboard') if current_user.role == 'vendor' else url_for('resident.dashboard') %}
 
-<form method="GET" class="field">
-  <select id="productSelect" name="product_id" class="input-pw" onchange="this.form.submit()">
-    <option value="">All commodities</option>
-    {% for p in products %}
-      <option value="{{ p.product_id }}" {% if selected_product == p.product_id %}selected{% endif %}>{{ p.product_name }} ({{ p.unit }})</option>
+<div class="d-flex align-items-center gap-3 mb-3">
+  <a href="{{ home }}" class="btn-pw btn-sm-pw" aria-label="Back to Home"><i class="fa-solid fa-arrow-left"></i></a>
+  <h4 class="page-title m-0">Price Trends</h4>
+</div>
+
+<!-- Filters: one row above the chart -->
+<div class="pt-filters">
+  <div class="pt-commodity">
+    <label class="visually-hidden" for="productSelect">Commodity</label>
+    <select id="productSelect" class="input-pw">
+      <option value="">Search a commodity</option>
+      <option value="all" {{ 'selected' if not selected_product }} data-sub="average">All commodities</option>
+      {% for p in products %}
+      <option value="{{ p.product_id }}" data-sub="per {{ p.unit or 'unit' }}" {{ 'selected' if selected_product == p.product_id }}>{{ p.product_name }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="pt-range" role="radiogroup" aria-label="Time range">
+    {% for d in (7, 30, 90) %}
+    <label><input type="radio" name="days" value="{{ d }}" {{ 'checked' if days == d }}><span>{{ d }}D</span></label>
     {% endfor %}
-  </select>
-</form>
+  </div>
+</div>
 
-<div class="pw-card white"><canvas id="priceChart" height="220"></canvas></div>
+<!-- Overview: every commodity with its own latest price and trend -->
+<div class="pw-card white pt-card pt-overview" id="ptOverview" hidden>
+  <div class="pt-ov-head">
+    <div class="pt-name">All commodities</div>
+    <div class="pt-asof">Latest average verified price · tap one for its full trend</div>
+  </div>
+  <div id="ptOvList"></div>
+</div>
 
-<!-- Smart Back Button -->
-{% if current_user.role == 'vendor' %}
-  <a class="btn-pale btn-block" href="{{ url_for('vendor.dashboard') }}">&larr; Back to Home</a>
-{% else %}
-  <a class="btn-pale btn-block" href="{{ url_for('resident.dashboard') }}">&larr; Back to Home</a>
-{% endif %}
+<div class="pw-card white pt-card" id="ptCard" aria-busy="true">
+  <!-- Headline: latest price + change over the range -->
+  <div class="pt-hero">
+    <div>
+      <div class="pt-name" id="ptName">All commodities</div>
+      <div class="pt-price"><span id="ptLatest">—</span><small id="ptUnit"></small></div>
+      <div class="pt-asof" id="ptAsOf">Latest average verified price</div>
+    </div>
+    <span class="pt-change" id="ptChange" hidden></span>
+  </div>
 
+  <div class="pt-legend" id="ptLegend" hidden>
+    <span><i class="pt-key pt-key-line"></i> Avg. verified price</span>
+    <span><i class="pt-key pt-key-srp"></i> DTI SRP <b id="ptSrp"></b></span>
+  </div>
+
+  <div class="pt-chart">
+    <canvas id="priceChart" role="img" aria-label="Average verified price over time"></canvas>
+    <div class="pt-empty" id="ptEmpty" hidden>
+      <i class="fa-solid fa-chart-line"></i>
+      <b>No verified prices yet</b>
+      <span>There are no LGU-verified reports for this commodity in the selected period. Try a longer range.</span>
+    </div>
+    <div class="pt-loading" id="ptLoading"><span></span></div>
+  </div>
+
+  <div class="pt-stats" id="ptStats" hidden>
+    <div><small>Lowest</small><b id="ptLow">—</b></div>
+    <div><small>Highest</small><b id="ptHigh">—</b></div>
+    <div><small>Average</small><b id="ptAvg">—</b></div>
+    <div><small>Reports</small><b id="ptCount">—</b></div>
+  </div>
+
+  <details class="pt-table" id="ptTableWrap" hidden>
+    <summary><i class="fa-solid fa-table-list"></i> View as table</summary>
+    <table>
+      <thead><tr><th>Date</th><th class="text-end">Avg. price</th><th class="text-end">Reports</th></tr></thead>
+      <tbody id="ptTable"></tbody>
+    </table>
+  </details>
+</div>
+
+<div class="small-note text-center mt-2">Averages of LGU-verified price reports from all markets.</div>
 {% endblock %}
 
 {% block scripts %}
+<script src="{{ url_for('static', filename='js/combo.js') }}"></script>
 <script>
-(async function () {
-  const productId = document.getElementById('productSelect').value;
-  const params = new URLSearchParams({ days: 30 });
-  if (productId) params.append('product_id', productId);
-  const res = await fetch(`{{ url_for('resident.price_history_data') }}?${params.toString()}`);
-  const data = await res.json();
-  new Chart(document.getElementById('priceChart').getContext('2d'), {
-    type: 'line',
-    data: { labels: data.labels, datasets: [{
-      label: 'Average Verified Price (PHP)', data: data.values,
-      borderColor: '#467348', backgroundColor: 'rgba(70,115,72,0.18)', fill: true, tension: 0.3 }] },
-    options: { responsive: true }
+(() => {
+  const API = "{{ url_for('resident.price_history_data') }}";
+  const LINE = '#1f7a45', SRP = '#c27c0e', INK = '#1d2a1b', MUTED = '#6b7466', GRID = '#edf1e9';
+  const $ = (id) => document.getElementById(id);
+  const select = $('productSelect');
+  const peso = (n) => '₱' + Number(n).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const toDate = (s) => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
+  const fmtDay = (s, long) => toDate(s).toLocaleDateString('en-PH', long
+    ? { month: 'long', day: 'numeric', year: 'numeric' } : { month: 'short', day: 'numeric' });
+  let chart = null, current = null;
+
+  PWCombo.enhance(select, { icon: 'fa-basket-shopping' });
+
+  // Vertical guide line at the hovered day.
+  const crosshair = {
+    id: 'crosshair',
+    afterDatasetsDraw(c) {
+      const a = c.tooltip && c.tooltip.getActiveElements();
+      if (!a || !a.length) return;
+      const x = a[0].element.x, { top, bottom } = c.chartArea, ctx = c.ctx;
+      ctx.save();
+      ctx.strokeStyle = 'rgba(29,42,27,.18)'; ctx.lineWidth = 1; ctx.setLineDash([3, 3]);
+      ctx.beginPath(); ctx.moveTo(x, top); ctx.lineTo(x, bottom); ctx.stroke();
+      ctx.restore();
+    },
+  };
+
+  // Small trend line for the overview rows (decorative: the price and % next to it carry the data).
+  function spark(values) {
+    if (values.length < 2) return '<span class="pt-spark"></span>';
+    const w = 72, h = 26, lo = Math.min(...values), hi = Math.max(...values), span = hi - lo || 1;
+    const pts = values.map((v, i) => [(i / (values.length - 1)) * (w - 6) + 3, h - 4 - ((v - lo) / span) * (h - 8)]);
+    const d = pts.map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ');
+    const last = pts[pts.length - 1];
+    return '<svg class="pt-spark" viewBox="0 0 ' + w + ' ' + h + '" aria-hidden="true"><path d="' + d + '"/>'
+      + '<circle cx="' + last[0].toFixed(1) + '" cy="' + last[1].toFixed(1) + '" r="2.6"/></svg>';
+  }
+
+  // Change from the first to the latest price in the range. Icon + word, not color alone.
+  function changeHtml(values, since, id) {
+    const attr = id ? ' id="' + id + '"' : '';
+    if (values.length < 2) return '<span' + attr + ' class="pt-change is-flat"><i class="fa-solid fa-minus"></i> New</span>';
+    const pct = (values[values.length - 1] - values[0]) / values[0] * 100;
+    const flat = Math.abs(pct) < 0.5, up = pct > 0;
+    return '<span' + attr + ' class="pt-change ' + (flat ? 'is-flat' : up ? 'is-up' : 'is-down') + '"><i class="fa-solid '
+      + (flat ? 'fa-minus' : up ? 'fa-arrow-trend-up' : 'fa-arrow-trend-down') + '"></i> '
+      + (flat ? 'Steady' : (up ? 'Up ' : 'Down ') + Math.abs(pct).toFixed(1) + '%')
+      + (since ? '<small>since ' + since + '</small>' : '') + '</span>';
+  }
+
+  const escHtml = (t) => String(t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+  function renderOverview(list) {
+    $('ptCard').hidden = true;
+    $('ptOverview').hidden = false;
+    $('ptOvList').innerHTML = list.length ? list.map((o) =>
+      '<button type="button" class="pt-ov-row" data-id="' + o.id + '">'
+      + '<span class="pt-ov-name"><b>' + escHtml(o.name) + '</b><small>' + o.count + ' report' + (o.count === 1 ? '' : 's') + '</small></span>'
+      + spark(o.values)
+      + '<span class="pt-ov-price"><b>' + peso(o.values[o.values.length - 1]) + '</b><small>/ ' + escHtml(o.unit || 'unit') + '</small></span>'
+      + changeHtml(o.values) + '</button>').join('')
+      : '<div class="pt-empty pt-empty-inline"><i class="fa-solid fa-chart-line"></i><b>No verified prices yet</b>'
+        + '<span>No LGU-verified reports in the selected period. Try a longer range.</span></div>';
+  }
+
+  $('ptOvList').addEventListener('click', (e) => {
+    const row = e.target.closest('.pt-ov-row');
+    if (!row) return;
+    select.value = row.dataset.id;
+    select._combo.refresh();
+    load();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   });
+
+  function render(d) {
+    $('ptOverview').hidden = true;
+    $('ptCard').hidden = false;
+    current = d;
+    const unit = d.unit ? ' / ' + d.unit : '';
+    const n = d.values.length;
+    const card = $('ptCard');
+    card.setAttribute('aria-busy', 'false');
+    $('ptLoading').hidden = true;
+    $('ptName').textContent = d.name || 'All commodities';
+    $('ptEmpty').hidden = n > 0;
+    $('ptStats').hidden = n === 0;
+    $('ptTableWrap').hidden = n === 0;
+    $('ptLegend').hidden = !(d.srp && n);
+    $('ptSrp').textContent = d.srp ? peso(d.srp) + unit : '';
+
+    // Headline + change over the selected range
+    let change = $('ptChange');
+    if (n) {
+      $('ptLatest').textContent = peso(d.values[n - 1]);
+      $('ptUnit').textContent = unit;
+      $('ptAsOf').textContent = 'Average verified price · ' + fmtDay(d.labels[n - 1], true);
+      if (n > 1) {
+        change.outerHTML = changeHtml(d.values, fmtDay(d.labels[0]), 'ptChange');
+      } else change.hidden = true;
+    } else {
+      $('ptLatest').textContent = ''; $('ptUnit').textContent = '';
+      $('ptAsOf').textContent = ''; change.hidden = true;
+    }
+
+    // Stats + table
+    if (n) {
+      const total = d.counts.reduce((a, b) => a + b, 0);
+      const weighted = d.values.reduce((a, v, i) => a + v * d.counts[i], 0) / total;
+      $('ptLow').textContent = peso(Math.min(...d.values));
+      $('ptHigh').textContent = peso(Math.max(...d.values));
+      $('ptAvg').textContent = peso(weighted);
+      $('ptCount').textContent = total.toLocaleString('en-PH');
+      $('ptTable').innerHTML = d.labels.map((l, i) =>
+        '<tr><td>' + fmtDay(l, true) + '</td><td class="text-end">' + peso(d.values[i]) + unit
+        + '</td><td class="text-end">' + d.counts[i] + '</td></tr>').reverse().join('');
+    }
+
+    // Chart
+    const canvas = $('priceChart');
+    if (chart) chart.destroy();
+    canvas.style.visibility = n ? 'visible' : 'hidden';
+    if (!n) { chart = null; return; }
+    const ctx = canvas.getContext('2d');
+    const showAll = n <= 12; // few points: show every marker; many: only the latest
+    const datasets = [{
+      label: 'Avg. verified price',
+      data: d.values,
+      borderColor: LINE, borderWidth: 2.5, tension: 0.35, cubicInterpolationMode: 'monotone',
+      fill: 'start',
+      backgroundColor: (c) => {
+        const area = c.chart.chartArea;
+        if (!area) return 'rgba(31,122,69,.12)';
+        const g = c.chart.ctx.createLinearGradient(0, area.top, 0, area.bottom);
+        g.addColorStop(0, 'rgba(31,122,69,.26)'); g.addColorStop(1, 'rgba(31,122,69,0)');
+        return g;
+      },
+      pointRadius: d.values.map((_, i) => (showAll || i === n - 1 ? 4 : 0)),
+      pointBackgroundColor: LINE, pointBorderColor: '#fff', pointBorderWidth: 2,
+      pointHoverRadius: 6, pointHoverBorderWidth: 3, pointHitRadius: 14,
+    }];
+    if (d.srp) datasets.push({
+      label: 'DTI SRP', data: d.values.map(() => d.srp),
+      borderColor: SRP, borderWidth: 2, borderDash: [6, 5], pointRadius: 0, pointHoverRadius: 0, fill: false,
+    });
+    chart = new Chart(ctx, {
+      type: 'line',
+      data: { labels: d.labels, datasets },
+      plugins: [crosshair],
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        animation: { duration: 650, easing: 'easeOutCubic' },
+        interaction: { mode: 'index', intersect: false },
+        layout: { padding: { top: 8, right: 6 } },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: '#fff', borderColor: '#e1e7da', borderWidth: 1, cornerRadius: 12,
+            padding: { x: 12, y: 10 }, titleColor: MUTED, bodyColor: INK,
+            titleFont: { size: 11, weight: '600' }, bodyFont: { size: 13, weight: '600' },
+            boxWidth: 8, boxHeight: 8, boxPadding: 5, usePointStyle: true, caretSize: 0,
+            callbacks: {
+              title: (items) => fmtDay(items[0].label, true),
+              label: (item) => item.datasetIndex === 0
+                ? ' ' + peso(item.raw) + unit + '  ·  ' + current.counts[item.dataIndex] + ' report' + (current.counts[item.dataIndex] === 1 ? '' : 's')
+                : ' DTI SRP ' + peso(item.raw) + unit,
+              labelPointStyle: () => ({ pointStyle: 'circle', rotation: 0 }),
+            },
+          },
+        },
+        scales: {
+          x: {
+            grid: { display: false }, border: { display: false },
+            ticks: { color: MUTED, font: { size: 11 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 5,
+                     callback: function (v) { return fmtDay(this.getLabelForValue(v)); } },
+          },
+          y: {
+            grace: '12%', border: { display: false },
+            grid: { color: GRID, drawTicks: false },
+            ticks: { color: MUTED, font: { size: 11 }, padding: 8, maxTicksLimit: 5,
+                     callback: (v) => '₱' + Number(v).toLocaleString('en-PH') },
+          },
+        },
+      },
+    });
+  }
+
+  async function load() {
+    const days = document.querySelector('input[name="days"]:checked').value;
+    const id = select.value && select.value !== 'all' ? select.value : '';
+    const params = new URLSearchParams({ days });
+    if (id) params.set('product_id', id);
+    history.replaceState(null, '', '?' + params.toString());
+    $('ptCard').setAttribute('aria-busy', 'true');
+    $('ptLoading').hidden = false;
+    try {
+      const res = await fetch(API + '?' + params.toString());
+      const data = await res.json();
+      $('ptLoading').hidden = true;
+      if (data.overview) renderOverview(data.overview); else render(data);
+    } catch (e) {
+      $('ptLoading').hidden = true;
+      $('ptEmpty').hidden = false;
+      $('ptEmpty').querySelector('b').textContent = "Couldn't load prices";
+      $('ptEmpty').querySelector('span').textContent = 'Check your connection and try again.';
+    }
+  }
+
+  select.addEventListener('change', () => { if (!select.value) { select.value = 'all'; select._combo.refresh(); } load(); });
+  document.querySelectorAll('input[name="days"]').forEach((r) => r.addEventListener('change', load));
+  load();
 })();
 </script>
 {% endblock %}
