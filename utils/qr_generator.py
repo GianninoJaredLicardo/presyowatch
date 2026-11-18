@@ -43,20 +43,22 @@ def _is_ip(host):
 def public_base_url():
     """Base URL that phones scanning a QR code can actually open.
 
-    1. PUBLIC_BASE_URL from the config/.env, when set (use this once the site is online).
-    2. Otherwise the address the page was opened with — except "localhost"/"127.0.0.1",
-       which only works on this computer, so it is swapped for the computer's Wi-Fi address.
+    1. On the live site, the public address the page was opened with. That address is
+       known to reach this app, so a mistyped/old PUBLIC_BASE_URL can't break QR codes.
+    2. Otherwise (testing on this computer) PUBLIC_BASE_URL, when set.
+    3. Otherwise the local address — "localhost"/"127.0.0.1" only works on this computer,
+       so it is swapped for the computer's Wi-Fi address.
     """
+    parts = urlsplit(request.url_root)
+    host = (parts.hostname or "").lower()
+    is_public_domain = (host not in LOCAL_HOSTS and "." in host and not _is_ip(host)
+                        and not host.endswith((".local", ".internal")))
+    if is_public_domain:
+        # Public sites are served over https; behind a proxy the request may look like http.
+        return urlunsplit(parts._replace(scheme="https", path="/", query="", fragment=""))
     configured = current_app.config.get("PUBLIC_BASE_URL")
     if configured:
         return configured.rstrip("/") + "/"
-    parts = urlsplit(request.url_root)
-    host = (parts.hostname or "").lower()
-    if parts.scheme == "http" and host not in LOCAL_HOSTS and "." in host and not _is_ip(host) \
-            and not host.endswith(".local"):
-        # Deployed behind a proxy that didn't say it was HTTPS: public sites are served over https,
-        # and an http:// QR link may be blocked or redirected by phones.
-        parts = parts._replace(scheme="https")
     if host in LOCAL_HOSTS:
         ip = _lan_ip()
         if ip:
