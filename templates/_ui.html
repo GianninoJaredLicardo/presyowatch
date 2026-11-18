@@ -2,7 +2,7 @@
 <div class="stat-tile"><div class="n">{{ n }}</div><div class="l">{{ label }}</div></div>
 {% endmacro %}
 
-{% macro verified() %}<span class="pill blue"><i class="fa-solid fa-check"></i> Verified</span>{% endmacro %}
+{% macro verified() %}<span class="vbadge" title="Verified by the LGU"><span class="vbadge-seal" aria-hidden="true"><i class="fa-solid fa-certificate"></i><i class="fa-solid fa-check"></i></span>Verified</span>{% endmacro %}
 
 {% macro status_pill(status) %}
   {% if status in ['verified', 'active', 'in_stock', 'resolved'] %}<span class="pill green">{{ status.replace('_', ' ')|title }}</span>

@@ -17,7 +17,7 @@ from models import (
 )
 from utils.helpers import get_settings, log_action, refresh_rules_for_product, role_required, save_settings
 from utils import file_store, paymongo
-from utils.notifications import notify
+from utils.notifications import notify, notify_role
 from utils.qr_generator import generate_qr_bytes, is_local_network_url, market_price_search_url, public_base_url
 from utils.report_generator import build_csv_report, build_pdf_report, build_xlsx_report
 
@@ -718,6 +718,10 @@ def _alert_action(alert_id, status, label):
     alert.status = status
     if status == "escalated" and not alert.dti_status:
         alert.escalated_at, alert.dti_status = datetime.utcnow(), "new"  # appears in DTI's Cases
+        notify_role("dti_da", f"New case: {alert.product_name}",
+                    f"{current_user.org_name or current_user.full_name} escalated a price spike at "
+                    f"{alert.market_name or 'a market'}" + (f" (₱{float(alert.reported_price):,.2f})" if alert.reported_price else "") + ".",
+                    link="/dti/cases", icon="inbox", tone="warn")
     
     if status == "resolved":
         alert.is_resolved = True
@@ -794,6 +798,9 @@ def generate_report():
         size_bytes=len(data), shared_with_agency=share,
     ).save()
     log_action(current_user, "report_generated", f"{title} ({file_type})" + (" — shared with DTI/DA" if share else ""))
+    if share:
+        notify_role("dti_da", "LGU shared a report", f"{current_user.org_name or current_user.full_name}: {title} ({file_type.upper()})",
+                    link="/dti/reports", icon="file-lines", tone="info")
     flash(f"'{title}' generated" + (" and shared with DTI/DA." if share else "."), "success")
     return redirect(url_for("lgu.manage", tab="reports"))
 

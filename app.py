@@ -109,7 +109,7 @@ def create_app():
                 1 for u in User.find(("role", "in", ["lgu_staff", "dti_da"])) if _is_pending_application(u)
             )
         unread_notifications = 0
-        if group in ("resident", "vendor"):
+        if group in ("resident", "vendor", "dti"):
             from utils.notifications import unread_count
             try:
                 unread_notifications = unread_count(current_user.user_id)
@@ -117,7 +117,7 @@ def create_app():
                 unread_notifications = 0
         return {"nav_current_user": current_user, "nav_items": items, "pending_applications": pending_applications,
                 "unread_notifications": unread_notifications,
-                "show_bell": group in ("resident", "vendor")}
+                "show_bell": group in ("resident", "vendor", "dti")}
 
     return app
 

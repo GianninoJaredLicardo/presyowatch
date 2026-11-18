@@ -19,7 +19,7 @@ from flask_login import current_user
 from models import Alert, AuditLog, DtiNotice, DtiSrp, Listing, Market, PriceReport, Product, ReportExport, User
 from utils import file_store
 from utils.helpers import latest_srp_by_product, localtime, log_action, role_required
-from utils.notifications import notify
+from utils.notifications import notify, settle_dti_notices
 
 bp = Blueprint("dti", __name__)
 dti_only = role_required("dti_da", "admin")
@@ -42,12 +42,7 @@ def _vendor_name(v):
 
 def _refresh_notices():
     """A notice counts as complied once the vendor's price is back at or below the SRP."""
-    listings = Listing.index()
-    for n in DtiNotice.find(status="issued"):
-        l = listings.get(n.listing_id)
-        if l is None or (l.price is not None and float(l.price) <= float(n.srp)):
-            n.status, n.complied_at = "complied", datetime.utcnow()
-            n.save()
+    settle_dti_notices(Listing.index(), complete=True)
 
 
 def _compliance(city=None):

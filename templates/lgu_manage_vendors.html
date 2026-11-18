@@ -29,6 +29,9 @@
     </div>
   </div>
   <div class="meta mb-2">{{ v.full_name }} - {{ m.market_name if m else '—' }}</div>
+  {% if v.is_verified_vendor and v.vendor_verified_at %}
+  <div class="vbadge-note"><i class="fa-solid fa-shield-halved"></i> Verified badge approved {{ v.vendor_verified_at|localtime('%b %d, %Y') }}</div>
+  {% endif %}
   <div class="d-flex gap-2 flex-wrap">
     {% if v.vendor_status == 'suspended' %}
       <!-- ONLY LGU CAN REACTIVATE -->
@@ -37,7 +40,13 @@
       {% endif %}
     {% else %}
       {% if not v.is_verified_vendor %}
-        <form method="POST" action="{{ url_for('lgu.approve_vendor', vendor_id=v.user_id) }}"><button class="btn-soft btn-sm-pw">Approve Badge</button></form>
+        <form method="POST" action="{{ url_for('lgu.approve_vendor', vendor_id=v.user_id) }}"
+              onsubmit="return confirm('Give {{ (v.business_name or v.full_name)|e }} the Verified badge? Shoppers will see it on their stall page.')">
+          <button class="btn-approve-badge" type="submit">
+            <span class="seal"><i class="fa-solid fa-certificate"></i><i class="fa-solid fa-check"></i></span>
+            Approve Verified Badge
+          </button>
+        </form>
       {% endif %}
       
       <!-- ONLY LGU CAN SUSPEND -->

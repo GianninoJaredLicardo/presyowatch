@@ -8,7 +8,7 @@ from flask_login import current_user
 from models import DtiNotice, Listing, Market, Product, Review, ScanEvent
 from utils.helpers import log_action, refresh_rules_for_product, role_required, vendor_stats
 from utils.csv_import import parse_listing_file
-from utils.notifications import notify
+from utils.notifications import notify, settle_dti_notices
 from utils.qr_generator import is_local_network_url, public_base_url, vendor_qr_url
 from utils.spike_detection import create_report
 
@@ -36,6 +36,7 @@ def _apply_price(listing, new_price):
     listing.price = new_price
     listing.updated_at = datetime.utcnow()
     listing.save()
+    settle_dti_notices({listing.listing_id: listing})
     if listing.product_id:
         refresh_rules_for_product(listing.product_id)
     if listing.product_id and current_user.market_id:
@@ -57,15 +58,8 @@ def _weekly_scans():
 def dashboard():
     listings = _my_listings()
     by_id = {l.listing_id: l for l in listings}
-    dti_notices = []
-    for n in DtiNotice.find(vendor_id=current_user.user_id, status="issued"):
-        l = by_id.get(n.listing_id)
-        if l is None or (l.price is not None and float(l.price) <= float(n.srp)):
-            n.status, n.complied_at = "complied", datetime.utcnow()  # price is back within SRP
-            n.save()
-        else:
-            n.listing = l
-            dti_notices.append(n)
+    settle_dti_notices(by_id)  # notices whose price is back within SRP are marked complied
+    dti_notices = [n for n in DtiNotice.find(vendor_id=current_user.user_id, status="issued") if n.listing_id in by_id]
     reviews = sorted(Review.find(vendor_id=current_user.user_id), key=lambda r: r.created_at, reverse=True)
     return render_template(
         "vendor_dashboard.html",

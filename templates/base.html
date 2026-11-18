@@ -81,10 +81,22 @@
   {% endwith %}
 
   {% if show_bell and not hide_nav|default(false) and request.endpoint != 'notifications.index' %}
-  <a class="notif-bell" href="{{ url_for('notifications.index') }}" aria-label="Notifications{{ ' (' ~ unread_notifications ~ ' unread)' if unread_notifications }}">
+  <a class="notif-bell" id="notifBell" href="{{ url_for('notifications.index') }}" role="button" aria-haspopup="dialog"
+     aria-expanded="false" aria-controls="notifPanel"
+     aria-label="Notifications{{ ' (' ~ unread_notifications ~ ' unread)' if unread_notifications }}"
+     data-feed="{{ url_for('notifications.feed') }}" data-read-all="{{ url_for('notifications.read_all') }}"
+     data-user="{{ nav_current_user.user_id }}">
     <i class="fa-solid fa-bell"></i>
-    {% if unread_notifications %}<span class="count">{{ unread_notifications if unread_notifications < 100 else '99+' }}</span>{% endif %}
+    <span class="count" {{ 'hidden' if not unread_notifications }}>{{ unread_notifications if unread_notifications < 100 else '99+' }}</span>
   </a>
+  <div class="notif-panel" id="notifPanel" role="dialog" aria-label="Notifications" hidden>
+    <div class="notif-panel-head">
+      <b>Notifications</b>
+      <button type="button" class="notif-readall" id="notifReadAll"><i class="fa-solid fa-check-double"></i> Mark all read</button>
+    </div>
+    <div class="notif-panel-list" id="notifList"><div class="notif-panel-empty"><span class="notif-spin"></span></div></div>
+    <a class="notif-panel-foot" href="{{ url_for('notifications.index') }}">See all notifications <i class="fa-solid fa-arrow-right"></i></a>
+  </div>
   {% endif %}
   {% block content %}{% endblock %}
 </main>
@@ -108,6 +120,7 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 <script src="{{ url_for('static', filename='js/forms.js') }}"></script>
+{% if show_bell %}<script src="{{ url_for('static', filename='js/notifications.js') }}"></script>{% endif %}
 {% block scripts %}{% endblock %}
 </body>
 </html>
