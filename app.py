@@ -64,6 +64,7 @@ def create_app():
     from routes.admin import bp as admin_bp
     from routes.notifications import bp as notifications_bp
     from routes.files import bp as files_bp
+    from routes.payments import bp as payments_bp
     from utils.file_store import file_url
 
     app.register_blueprint(auth_bp)
@@ -74,6 +75,7 @@ def create_app():
     app.register_blueprint(admin_bp, url_prefix="/admin")
     app.register_blueprint(notifications_bp, url_prefix="/notifications")
     app.register_blueprint(files_bp, url_prefix="/files")
+    app.register_blueprint(payments_bp, url_prefix="/payments")
     app.jinja_env.globals["file_url"] = file_url
 
     app.jinja_env.filters["timeago"] = timeago

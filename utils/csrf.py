@@ -32,12 +32,20 @@ def csrf_token():
     return token
 
 
+def csrf_exempt(view):
+    """For endpoints called by other servers (e.g. payment webhooks), which verify requests another way."""
+    view._csrf_exempt = True
+    return view
+
+
 def init_csrf(app):
     app.jinja_env.globals["csrf_token"] = csrf_token
 
     @app.before_request
     def _check_csrf():
         if request.method not in _UNSAFE or app.config.get("CSRF_DISABLED"):
+            return None
+        if getattr(app.view_functions.get(request.endpoint), "_csrf_exempt", False):
             return None
         sent = request.form.get(_FIELD) or request.headers.get("X-CSRF-Token") or ""
         expected = session.get("_csrf") or ""

@@ -36,6 +36,12 @@ class Config:
     SESSION_COOKIE_SAMESITE = "Lax"
     REMEMBER_COOKIE_HTTPONLY = True
 
+    # PayMongo payments for LGU subscriptions (https://dashboard.paymongo.com/developers).
+    # Without a secret key, payments are simulated. Use sk_test_... keys while testing.
+    PAYMONGO_SECRET_KEY = os.environ.get("PAYMONGO_SECRET_KEY", "").strip()
+    PAYMONGO_WEBHOOK_SECRET = os.environ.get("PAYMONGO_WEBHOOK_SECRET", "").strip()
+    PAYMONGO_METHODS = os.environ.get("PAYMONGO_METHODS", "card,gcash,paymaya")
+
     UPLOAD_FOLDER = os.path.join(BASE_DIR, "static", "uploads")
     EXPORT_FOLDER = os.path.join(BASE_DIR, "exports")
     MAX_CONTENT_LENGTH = 5 * 1024 * 1024  # 5 MB max photo upload

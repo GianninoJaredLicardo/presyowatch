@@ -372,6 +372,47 @@ class BillingRecord(Model):
     }
 
 
+@transactional
+def _claim_pending(transaction, ref, updates):
+    snap = ref.get(transaction=transaction)
+    if not snap.exists or snap.get("status") != "pending":
+        return False
+    transaction.update(ref, {"status": "paid", **updates})
+    return True
+
+
+class Payment(Model):
+    """One PayMongo checkout for a subscription renewal or plan change."""
+    collection = "payments"
+    id_field = "payment_id"
+    defaults = {
+        "user_id": None,
+        "purpose": "renew",           # renew | plan
+        "plan": None,
+        "amount": None,
+        "checkout_id": None,
+        "status": "pending",          # pending | paid
+        "method": None,
+        "method_label": None,
+        "last4": None,
+        "paymongo_payment_id": None,
+        "created_at": datetime.utcnow,
+        "paid_at": None,
+    }
+
+    def claim(self, **updates):
+        """Marks a pending payment paid. True only for the one caller that did it,
+        so the return page and the webhook can't both apply the same payment."""
+        db = get_db()
+        updates["paid_at"] = datetime.utcnow()
+        ok = _claim_pending(db.transaction(), self._col().document(str(self.payment_id)), updates)
+        if ok:
+            self.status = "paid"
+            for k, v in updates.items():
+                setattr(self, k, v)
+        return ok
+
+
 class AuditLog(Model):
     collection = "audit_logs"
     id_field = "log_id"

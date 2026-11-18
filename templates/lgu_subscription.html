@@ -13,7 +13,7 @@
   <div class="small mt-1" style="opacity:.8">Renews {{ sub.renews_at|localtime('%b %d, %Y') }}</div>
   <div class="d-flex justify-content-between mt-3">
     <button class="btn-pw-outline" type="button" data-bs-toggle="collapse" data-bs-target="#plans">Upgrade Plan</button>
-    <form method="POST" action="{{ url_for('lgu.renew_subscription') }}"><button class="btn-yellow" type="submit">Renew Now</button></form>
+    <form method="POST" action="{{ url_for('lgu.renew_subscription') }}"><button class="btn-yellow" type="submit">{% if paymongo_enabled %}Pay &amp; Renew{% else %}Renew Now{% endif %}</button></form>
   </div>
 </div>
 
@@ -24,10 +24,14 @@
     <form method="POST" action="{{ url_for('lgu.change_plan') }}" class="row-line">
       <input type="hidden" name="plan" value="{{ key }}">
       <div><b>{{ p.name }}</b><br><small class="text-muted">₱{{ '{:,}'.format(p.price) }}/{{ p.period }}</small></div>
-      {% if key == sub.plan %}<span class="pill green">Current</span>{% else %}<button class="btn-pw btn-sm-pw" type="submit">Switch</button>{% endif %}
+      {% if key == sub.plan %}<span class="pill green">Current</span>{% else %}<button class="btn-pw btn-sm-pw" type="submit">{% if paymongo_enabled %}Pay &amp; Switch{% else %}Switch{% endif %}</button>{% endif %}
     </form>
     {% endfor %}
+    {% if paymongo_enabled %}
+    <div class="small-note mt-2"><i class="fa-solid fa-lock"></i> You'll pay securely on PayMongo with card, GCash or Maya. The new plan starts once payment is confirmed.</div>
+    {% else %}
     <div class="small-note mt-2">Payments are simulated in this build — no real charge is made.</div>
+    {% endif %}
   </div>
 </div>
 
@@ -58,7 +62,7 @@
 <div class="pw-card tint">
   {% for b in history %}
   <div class="row-line small"><span>{{ b.description }}<br><small class="text-muted">{{ b.created_at|localtime('%b %d, %Y') }}</small></span>
-    <span class="d-flex gap-2 align-items-center"><b class="price">₱{{ '{:,}'.format(b.amount|int) }}</b><span class="pill green">Paid</span></span></div>
+    <span class="d-flex gap-2 align-items-center"><b class="price">₱{{ '{:,}'.format(b.amount|int) }}</b>{% if (b.status or 'paid') == 'paid' %}<span class="pill green">Paid</span>{% else %}<span class="pill pending">{{ b.status|title }}</span>{% endif %}</span></div>
   {% else %}<div class="text-muted text-center">No billing yet.</div>{% endfor %}
 </div>
 
@@ -71,8 +75,12 @@
         <div class="small">{% if sub.payment_last4 %}•••• •••• •••• {{ sub.payment_last4 }}{% else %}Linked{% endif %}
           {% if sub.payment_expiry %}<br><small class="text-muted fst-italic">Expires {{ sub.payment_expiry }}</small>{% endif %}</div>
       </div>
-    {% else %}<div class="text-muted small">No payment method on file.</div>{% endif %}
+    {% else %}<div class="text-muted small">{{ 'No payments yet.' if paymongo_enabled else 'No payment method on file.' }}</div>{% endif %}
   </div>
+  {% if paymongo_enabled %}
+  <div class="small text-muted"><i class="fa-solid fa-shield-halved"></i> Shows how you last paid. You choose card, GCash or Maya
+    on PayMongo's secure checkout each time — card details are never stored by PresyoWatch.</div>
+  {% else %}
   <form method="POST" action="{{ url_for('lgu.update_payment') }}">
     <div class="chips">
       {% for v, t in [('card', 'Card'), ('gcash', 'GCash'), ('maya', 'Maya'), ('bank', 'Bank Transfer')] %}
@@ -86,6 +94,7 @@
     </div>
     <button class="btn-pw btn-sm-pw" type="submit">Change</button>
   </form>
+  {% endif %}
 </div>
 
 <form method="POST" action="{{ url_for('lgu.cancel_subscription') }}" onsubmit="return confirm('Cancel your subscription?')">

@@ -13,10 +13,10 @@ from flask_login import current_user
 from config import PLANS
 from models import (
     Alert, AuditLog, BillingRecord, DtiSrp, Listing, Market, PriceReport, Product, ReportExport,
-    Subscription, User,
+    Payment, Subscription, User,
 )
 from utils.helpers import get_settings, log_action, refresh_rules_for_product, role_required, save_settings
-from utils import file_store
+from utils import file_store, paymongo
 from utils.notifications import notify
 from utils.qr_generator import generate_qr_bytes, is_local_network_url, market_price_search_url, public_base_url
 from utils.report_generator import build_csv_report, build_pdf_report, build_xlsx_report
@@ -400,33 +400,98 @@ def warn_vendor(listing_id):
 
 
 # ---- subscription -------------------------------------------------
-def _subscription():
-    sub = Subscription.first(user_id=current_user.user_id)
+def _subscription(user=None):
+    user = user or current_user
+    sub = Subscription.first(user_id=user.user_id)
     if sub is None:
         now = datetime.utcnow()
         sub = Subscription(
-            user_id=current_user.user_id, plan="quarterly", started_at=now,
+            user_id=user.user_id, plan="quarterly", started_at=now,
             renews_at=now + timedelta(days=PLANS["quarterly"]["days"]),
         ).save()
-        BillingRecord(user_id=current_user.user_id,
+        BillingRecord(user_id=user.user_id,
                       description=f"Quarterly Plan — {now:%b %Y}",
                       amount=PLANS["quarterly"]["price"]).save()
     return sub
 
 
-def _charge(plan_key, note=""):
+def _apply_subscription(user, purpose, plan_key, paid_with=None):
+    """Extends (renew) or switches (plan) the subscription after a payment."""
     plan = PLANS[plan_key]
-    BillingRecord(user_id=current_user.user_id,
-                  description=f"{plan['name']} Plan — {datetime.utcnow():%b %Y}{note}",
+    sub = _subscription(user)
+    now = datetime.utcnow()
+    if purpose == "renew":
+        sub.plan = plan_key
+        sub.renews_at = max(now, sub.renews_at or now) + timedelta(days=plan["days"])
+    else:
+        sub.plan, sub.started_at = plan_key, now
+        sub.renews_at = now + timedelta(days=plan["days"])
+    sub.status = "active"
+    if paid_with:
+        sub.payment_type, sub.payment_label = paid_with["method"], paid_with["label"]
+        sub.payment_last4, sub.payment_expiry = paid_with.get("last4"), None
+    sub.save()
+    user.subscription_status = "active"
+    user.save()
+    via = f" via {paid_with['label']}" if paid_with else ""
+    BillingRecord(user_id=user.user_id, description=f"{plan['name']} Plan — {now:%b %Y}{via}",
                   amount=plan["price"]).save()
+    log_action(user, "subscription_renewed" if purpose == "renew" else "plan_changed", plan["name"] + via)
+
+
+def finalize_payment(payment):
+    """Asks PayMongo whether this checkout was paid and, if so, applies it exactly once.
+    True when paid (now or earlier), False while still unpaid."""
+    if payment.status == "paid":
+        return True
+    details = paymongo.fetch_paid_details(payment.checkout_id)
+    if not details:
+        return False
+    if payment.claim(method=details["method"], method_label=details["label"], last4=details["last4"],
+                     paymongo_payment_id=details["payment_id"]):
+        _apply_subscription(User.get(payment.user_id), payment.purpose, payment.plan, paid_with=details)
+    return True
+
+
+def _start_checkout(purpose, plan_key):
+    plan = PLANS[plan_key]
+    payment = Payment(user_id=current_user.user_id, purpose=purpose, plan=plan_key, amount=plan["price"]).save()
+    action = "Renewal" if purpose == "renew" else "Plan change"
+    try:
+        checkout_id, checkout_url = paymongo.create_checkout(
+            amount_php=plan["price"],
+            item_name=f"PresyoWatch {plan['name']} Plan",
+            description=f"{action}: {plan['name']} plan, {plan['days']} days of LGU price monitoring",
+            reference=f"PW-{payment.payment_id}",
+            success_url=url_for("lgu.payment_return", payment_id=payment.payment_id, _external=True),
+            cancel_url=url_for("lgu.payment_cancelled", payment_id=payment.payment_id, _external=True),
+            email=current_user.email, name=current_user.full_name,
+            metadata={"payment_id": payment.payment_id, "user_id": current_user.user_id},
+        )
+    except paymongo.PayMongoError as e:
+        payment.delete()
+        flash(f"Couldn't start the payment. {e}", "danger")
+        return redirect(url_for("lgu.subscription"))
+    payment.checkout_id = checkout_id
+    payment.save()
+    return redirect(checkout_url, code=303)
 
 
 @bp.route("/subscription")
 @lgu_admin_only
 def subscription():
+    now = datetime.utcnow()
+    if paymongo.enabled():
+        # Pick up payments finished after the user left PayMongo's page (e.g. a slow GCash confirmation).
+        for p in Payment.find(user_id=current_user.user_id, status="pending"):
+            if p.checkout_id and p.created_at >= now - timedelta(days=1):
+                try:
+                    if finalize_payment(p):
+                        flash(f"Payment received — your {PLANS[p.plan]['name']} plan is active.", "success")
+                except paymongo.PayMongoError:
+                    pass
     sub = _subscription()
     plan = PLANS[sub.plan]
-    now = datetime.utcnow()
     total = plan["days"] * 86400
     left = max(0, (sub.renews_at - now).total_seconds())
     elapsed_pct = max(0, min(100, round(100 * (1 - left / total)))) if total else 100
@@ -445,7 +510,7 @@ def subscription():
     history = sorted(BillingRecord.find(user_id=current_user.user_id), key=lambda b: b.created_at, reverse=True)[:6]
     return render_template(
         "lgu_subscription.html", sub=sub, plan=plan, plans=PLANS, days_left=max(0, (sub.renews_at - now).days),
-        elapsed_pct=elapsed_pct, usage=usage, history=history,
+        elapsed_pct=elapsed_pct, usage=usage, history=history, paymongo_enabled=paymongo.enabled(),
     )
 
 
@@ -453,16 +518,10 @@ def subscription():
 @lgu_admin_only
 def renew_subscription():
     sub = _subscription()
-    plan = PLANS[sub.plan]
-    base = max(datetime.utcnow(), sub.renews_at)
-    sub.renews_at = base + timedelta(days=plan["days"])
-    sub.status = "active"
-    sub.save()
-    current_user.subscription_status = "active"
-    current_user.save()
-    _charge(sub.plan)
-    log_action(current_user, "subscription_renewed", plan["name"])
-    flash(f"{plan['name']} plan renewed (simulated payment).", "success")
+    if paymongo.enabled():
+        return _start_checkout("renew", sub.plan)
+    _apply_subscription(current_user, "renew", sub.plan)
+    flash(f"{PLANS[sub.plan]['name']} plan renewed (simulated payment).", "success")
     return redirect(url_for("lgu.subscription"))
 
 
@@ -472,22 +531,47 @@ def change_plan():
     key = request.form.get("plan")
     if key not in PLANS:
         abort(400)
-    sub = _subscription()
-    now = datetime.utcnow()
-    sub.plan, sub.status, sub.started_at = key, "active", now
-    sub.renews_at = now + timedelta(days=PLANS[key]["days"])
-    sub.save()
-    current_user.subscription_status = "active"
-    current_user.save()
-    _charge(key)
-    log_action(current_user, "plan_changed", PLANS[key]["name"])
+    if paymongo.enabled():
+        return _start_checkout("plan", key)
+    _apply_subscription(current_user, "plan", key)
     flash(f"Switched to the {PLANS[key]['name']} plan (simulated payment).", "success")
+    return redirect(url_for("lgu.subscription"))
+
+
+@bp.route("/subscription/payments/<int:payment_id>/done")
+@lgu_admin_only
+def payment_return(payment_id):
+    payment = Payment.get_or_404(payment_id)
+    if payment.user_id != current_user.user_id:
+        abort(403)
+    plan = PLANS[payment.plan]
+    try:
+        paid = finalize_payment(payment)
+    except paymongo.PayMongoError as e:
+        flash(f"We couldn't confirm your payment yet. {e} If you were charged, it will be applied automatically.",
+              "warning")
+        return redirect(url_for("lgu.subscription"))
+    if paid:
+        what = "renewed" if payment.purpose == "renew" else "activated"
+        flash(f"Payment received — thank you! Your {plan['name']} plan has been {what}.", "success")
+    else:
+        flash("Your payment hasn't been confirmed by PayMongo yet. If you completed it, refresh this page "
+              "in a minute; it will be applied automatically.", "info")
+    return redirect(url_for("lgu.subscription"))
+
+
+@bp.route("/subscription/payments/<int:payment_id>/cancelled")
+@lgu_admin_only
+def payment_cancelled(payment_id):
+    flash("Payment cancelled. You weren't charged.", "info")
     return redirect(url_for("lgu.subscription"))
 
 
 @bp.route("/subscription/payment", methods=["POST"])
 @lgu_admin_only
 def update_payment():
+    if paymongo.enabled():
+        abort(404)  # the method is chosen on PayMongo's checkout instead
     kind = request.form.get("payment_type")
     labels = {"card": "Card", "gcash": "GCash", "maya": "Maya", "bank": "Bank Transfer"}
     if kind not in labels:
