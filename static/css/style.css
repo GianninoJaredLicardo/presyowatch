@@ -852,3 +852,77 @@ select.fl-input option:checked { background: var(--primary-soft); color: var(--p
 /* <summary> used as a button: hide the disclosure marker */
 .summary-btn { list-style: none; }
 .summary-btn::-webkit-details-marker { display: none; }
+
+/* ---- searchable dropdown (static/js/combo.js) ---- */
+.combo { position: relative; }
+.combo-control { position: relative; }
+.combo .combo-input { padding-left: 42px; padding-right: 68px; text-overflow: ellipsis; cursor: pointer; }
+.combo.is-open .combo-input { cursor: text; border-color: var(--primary); background: #fff; box-shadow: 0 0 0 4px rgba(31, 122, 69, .13); }
+.combo-icon {
+  position: absolute; left: 15px; top: 50%; transform: translateY(-50%);
+  color: #9aa393; pointer-events: none; transition: color .15s;
+}
+.combo.has-value .combo-icon, .combo.is-open .combo-icon { color: var(--primary); }
+.combo-chevron {
+  position: absolute; right: 15px; top: 50%; transform: translateY(-50%);
+  font-size: .8rem; color: #7d8778; pointer-events: none; transition: transform .2s ease, color .2s;
+}
+.combo.is-open .combo-chevron { transform: translateY(-50%) rotate(180deg); color: var(--primary); }
+.combo-clear {
+  position: absolute; right: 36px; top: 50%; transform: translateY(-50%);
+  display: none; width: 24px; height: 24px; border: 0; border-radius: 50%;
+  background: var(--chip); color: var(--muted); font-size: .72rem; line-height: 24px; padding: 0;
+}
+.combo-clear:hover { background: var(--line-strong); color: var(--ink); }
+.combo.has-value:not(.is-disabled) .combo-clear { display: block; }
+
+.combo-panel {
+  position: absolute; left: 0; right: 0; top: calc(100% + 6px); z-index: 60;
+  max-height: 290px; overflow-y: auto; overscroll-behavior: contain; padding: 6px;
+  background: #fff; border: 1px solid var(--line); border-radius: 16px;
+  box-shadow: 0 20px 44px -14px rgba(16, 40, 24, .28), 0 2px 6px rgba(16, 40, 24, .06);
+  opacity: 0; visibility: hidden; transform: translateY(-6px) scale(.985); transform-origin: top center;
+  transition: opacity .16s ease, transform .16s ease, visibility 0s linear .16s;
+}
+.combo.is-open .combo-panel { opacity: 1; visibility: visible; transform: none; transition-delay: 0s; }
+.combo-group {
+  padding: 10px 12px 4px; font-size: .68rem; font-weight: 700; letter-spacing: .07em;
+  text-transform: uppercase; color: #7d8778;
+}
+.combo-group:not(:first-child) { margin-top: 4px; border-top: 1px dashed var(--line); padding-top: 12px; }
+.combo-option {
+  display: flex; align-items: center; gap: 10px; padding: 11px 12px; border-radius: 11px;
+  cursor: pointer; color: var(--ink); transition: background .1s;
+}
+.combo-option.is-active { background: var(--primary-soft); }
+.combo-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.combo-sub { font-size: .78rem; color: var(--muted); white-space: nowrap; }
+.combo-check { font-size: .8rem; color: var(--primary); visibility: hidden; }
+.combo-option.is-selected .combo-label { font-weight: 600; color: var(--primary-dark); }
+.combo-option.is-selected .combo-check { visibility: visible; }
+.combo mark { background: var(--accent-soft); color: inherit; font-weight: 700; padding: 0 1px; border-radius: 4px; }
+.combo-empty { padding: 16px 12px; text-align: center; color: var(--muted); font-size: .9rem; }
+.combo-empty i { margin-right: 6px; opacity: .6; }
+
+.combo.is-disabled .combo-input { background: #eef1eb; border-style: dashed; color: #9aa393; cursor: not-allowed; }
+.combo.is-disabled .combo-icon, .combo.is-disabled .combo-chevron { color: #b5bdb0; }
+
+.combo-alert {
+  display: flex; align-items: center; gap: 8px; margin-top: 8px; padding: 9px 12px;
+  font-size: .84rem; color: var(--red-dark); background: var(--red-soft);
+  border: 1px solid #f6c9c4; border-radius: 12px; animation: comboAlertIn .22s ease;
+}
+.combo-alert[hidden] { display: none; }
+.combo.shake .combo-control { animation: comboShake .38s ease; }
+.combo.attention .combo-input { animation: comboGlow 1.6s ease; }
+
+@keyframes comboAlertIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+@keyframes comboShake { 20%, 60% { transform: translateX(-5px); } 40%, 80% { transform: translateX(5px); } }
+@keyframes comboGlow {
+  0%, 60% { border-color: var(--primary); box-shadow: 0 0 0 5px rgba(31, 122, 69, .22); }
+  100% { box-shadow: 0 0 0 0 rgba(31, 122, 69, 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .combo-panel, .combo-chevron { transition: none; }
+  .combo.shake .combo-control, .combo.attention .combo-input, .combo-alert { animation: none; }
+}

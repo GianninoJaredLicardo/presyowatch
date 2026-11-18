@@ -7,8 +7,8 @@
 <form method="POST" enctype="multipart/form-data" class="pw-card" id="reportForm">
   <div class="field">
     <label class="form-label" for="rpMarket">Market/Location</label>
-    <select class="input-pw" id="rpMarket" name="market_id" required>
-      <option value="" selected disabled>Select a market</option>
+    <select class="input-pw" id="rpMarket" name="market_id">
+      <option value="" selected>Search or select a market</option>
       {% for city, markets in markets_by_city.items() %}
       <optgroup label="{{ city }}">
         {% for m in markets %}<option value="{{ m.market_id }}">{{ m.market_name }}</option>{% endfor %}
@@ -19,13 +19,13 @@
   </div>
   <div class="field">
     <label class="form-label" for="rpVendor">Vendor / Store</label>
-    <select class="input-pw" id="rpVendor" name="vendor_id" required disabled>
+    <select class="input-pw" id="rpVendor" name="vendor_id" disabled>
       <option value="">Choose a market first</option>
     </select>
   </div>
   <div class="field">
     <label class="form-label" for="rpItem">Commodity</label>
-    <select class="input-pw" id="rpItem" name="listing_id" required disabled>
+    <select class="input-pw" id="rpItem" name="listing_id" disabled>
       <option value="">Choose a vendor first</option>
     </select>
   </div>
@@ -61,24 +61,53 @@
 {% endblock %}
 
 {% block scripts %}
+<script src="{{ url_for('static', filename='js/combo.js') }}"></script>
 <script>
 (() => {
   const vendors = {{ vendor_options|tojson }};
+  const form = document.getElementById('reportForm');
   const market = document.getElementById('rpMarket');
   const vendor = document.getElementById('rpVendor');
   const item = document.getElementById('rpItem');
+  const price = document.getElementById('rpPrice');
   const unit = document.getElementById('rpUnit');
   const listed = document.getElementById('rpListed');
   const peso = (n) => '₱' + Number(n).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const plural = (n, w) => n + ' ' + w + (n === 1 ? '' : 's');
 
-  // Rebuild a dropdown; it stays disabled while there is nothing to choose.
+  // Right-hand detail on each market: how many registered vendors it has.
+  [...market.options].forEach((o) => {
+    if (o.value) o.dataset.sub = plural(vendors.filter((v) => String(v.market_id) === o.value).length, 'vendor');
+  });
+
+  const marketBox = PWCombo.enhance(market, { icon: 'fa-location-dot' });
+  const vendorBox = PWCombo.enhance(vendor, {
+    icon: 'fa-store',
+    onBlocked: () => {
+      if (!market.value) { marketBox.attention(); return 'Please choose a Market/Location first.'; }
+      return 'There are no registered vendors in this market yet. Please choose another market.';
+    },
+  });
+  const itemBox = PWCombo.enhance(item, {
+    icon: 'fa-basket-shopping',
+    onBlocked: () => {
+      if (!market.value) { marketBox.attention(); return 'Please choose a Market/Location first, then a Vendor / Store.'; }
+      if (!vendor.value) { vendorBox.attention(); return 'Please choose a Vendor / Store first.'; }
+      return "This vendor hasn't listed any commodities yet. Please choose another vendor.";
+    },
+  });
+
+  // Rebuild a dropdown's options; it stays locked while there is nothing to choose.
   function fill(select, placeholder, options) {
     select.innerHTML = '';
-    const first = new Option(placeholder, '', true, true);
-    first.disabled = options.length > 0;
-    select.add(first);
-    options.forEach(([value, label]) => select.add(new Option(label, value)));
+    select.add(new Option(placeholder, '', true, true));
+    options.forEach(([value, label, sub]) => {
+      const o = new Option(label, value);
+      if (sub) o.dataset.sub = sub;
+      select.add(o);
+    });
     select.disabled = options.length === 0;
+    select._combo.refresh();
   }
 
   function showItem() {
@@ -91,8 +120,9 @@
 
   market.addEventListener('change', () => {
     const list = vendors.filter((v) => String(v.market_id) === market.value);
-    fill(vendor, list.length ? 'Select a vendor or store' : 'No registered vendors in this market yet',
-         list.map((v) => [v.id, v.name]));
+    fill(vendor, !market.value ? 'Choose a market first'
+      : list.length ? 'Search or select a vendor' : 'No registered vendors in this market yet',
+      list.map((v) => [v.id, v.name, plural(v.items.length, 'item')]));
     fill(item, 'Choose a vendor first', []);
     showItem();
   });
@@ -100,19 +130,40 @@
   vendor.addEventListener('change', () => {
     const v = vendors.find((x) => String(x.id) === vendor.value);
     const items = v ? v.items : [];
-    fill(item, items.length ? 'Select a commodity' : 'This vendor has no commodities listed yet',
-         items.map((i) => [i.id, i.name + ' (' + i.unit + ')']));
+    fill(item, !v ? 'Choose a vendor first'
+      : items.length ? 'Search or select a commodity' : 'This vendor has no commodities listed yet',
+      items.map((i) => [i.id, i.name, (i.price ? peso(i.price) + ' / ' : 'per ') + i.unit]));
     showItem();
   });
 
   item.addEventListener('change', showItem);
 
+  // Typing a price before choosing what it's for: point back to the missing step.
+  price.addEventListener('focus', () => {
+    if (!market.value) marketBox.showAlert('Please choose a Market/Location first.');
+    else if (!vendor.value) vendorBox.showAlert('Please choose a Vendor / Store first.');
+    else if (!item.value) itemBox.showAlert('Please choose a Commodity first.');
+  });
+
+  // The real <select>s are hidden, so check them here instead of with the browser's "required".
+  form.addEventListener('submit', (e) => {
+    const missing = [[market, marketBox, 'Please choose a Market/Location.'],
+                     [vendor, vendorBox, 'Please choose a Vendor / Store.'],
+                     [item, itemBox, 'Please choose a Commodity.']].find(([s]) => !s.value);
+    if (missing) {
+      e.preventDefault();
+      missing[1].showAlert(missing[2]);
+      missing[1].attention();
+    }
+  });
+
   // Browser back/refresh can keep old selections: rebuild the lists from them.
   if (market.value) {
     const keepVendor = vendor.value, keepItem = item.value;
     market.dispatchEvent(new Event('change'));
-    if (keepVendor) { vendor.value = keepVendor; vendor.dispatchEvent(new Event('change')); }
-    if (keepItem) { item.value = keepItem; showItem(); }
+    if (keepVendor) { vendor.value = keepVendor; vendor.dispatchEvent(new Event('change')); vendorBox.refresh(); }
+    if (keepItem) { item.value = keepItem; itemBox.refresh(); showItem(); }
+    marketBox.refresh();
   }
 })();
 </script>
