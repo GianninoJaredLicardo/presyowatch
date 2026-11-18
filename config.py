@@ -6,6 +6,16 @@ load_dotenv()
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 
 
+def _normalize_base_url(value):
+    """'presyowatch.onrender.com/' -> 'https://presyowatch.onrender.com'.
+    Without a scheme, phones treat the QR code as plain text instead of a link."""
+    value = (value or "").strip().strip('"\'').rstrip("/")
+    if value and "://" not in value:
+        local = value.split(":")[0] in ("localhost", "127.0.0.1") or value.startswith("192.168.")
+        value = ("http://" if local else "https://") + value
+    return value
+
+
 class Config:
     SECRET_KEY = os.environ.get("SECRET_KEY") or "presyowatch-dev-secret-change-me"
 
@@ -18,7 +28,7 @@ class Config:
     # Public address that QR codes point to, e.g. https://presyowatch.example.com
     # Leave empty while testing: QR codes then use this computer's Wi-Fi address,
     # so phones on the same Wi-Fi can open them.
-    PUBLIC_BASE_URL = os.environ.get("PUBLIC_BASE_URL", "").strip()
+    PUBLIC_BASE_URL = _normalize_base_url(os.environ.get("PUBLIC_BASE_URL", ""))
 
     # Over HTTPS, only send the login cookie over encrypted connections.
     SESSION_COOKIE_SECURE = PUBLIC_BASE_URL.startswith("https://")

@@ -9,6 +9,7 @@ from models import Listing, Market, Product, Review, ScanEvent
 from utils.helpers import log_action, refresh_rules_for_product, role_required, vendor_stats
 from utils.csv_import import parse_listing_file
 from utils.notifications import notify
+from utils.qr_generator import is_local_network_url, public_base_url, vendor_qr_url
 from utils.spike_detection import create_report
 
 bp = Blueprint("vendor", __name__)
@@ -303,4 +304,6 @@ def profile():
         "vendor_profile.html",
         scans=_weekly_scans(),
         market=Market.get(current_user.market_id) if current_user.market_id else None,
+        qr_target=vendor_qr_url(public_base_url(), current_user.user_id),
+        qr_local_only=is_local_network_url(public_base_url()),
     )

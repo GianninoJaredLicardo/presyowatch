@@ -45,16 +45,25 @@ const hint = document.getElementById('hint');
 const scanBtn = document.getElementById('scanBtn');
 let scanner = null;
 
-// Only follow QR codes that point back to this site (prevents open redirects).
+// PresyoWatch QR codes point to a vendor page, a market's price list, or the home page.
+const QR_PATHS = [/^\/vendor\/\d+\/?$/, /^\/prices\/search\/?$/, /^\/?$/];
+
+// Open PresyoWatch QR codes on THIS site, even if they were printed with another address
+// (e.g. an old http://192.168.x.x code made before the site went online). Never follows
+// links to other websites (prevents open redirects).
 function handle(text) {
+  text = (text || '').trim();
+  let url = null;
   try {
-    const url = new URL(text, location.origin);
-    if (url.origin === location.origin) {
-      location.href = url.href;
-      return;
-    }
+    url = new URL(/^[a-z][a-z0-9+.-]*:\/\//i.test(text) ? text : 'https://' + text.replace(/^\/+/, ''));
   } catch (e) {}
+  if (url && (url.origin === location.origin || QR_PATHS.some((re) => re.test(url.pathname)))) {
+    statusEl.textContent = 'Opening…';
+    location.href = location.origin + url.pathname + url.search + url.hash;
+    return;
+  }
   statusEl.textContent = 'Not a PresyoWatch QR code';
+  if (scanner) { stopCamera(); }
 }
 
 // Start the camera

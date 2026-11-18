@@ -32,6 +32,14 @@ def _lan_ip():
         s.close()
 
 
+def _is_ip(host):
+    try:
+        ipaddress.ip_address(host)
+        return True
+    except ValueError:
+        return False
+
+
 def public_base_url():
     """Base URL that phones scanning a QR code can actually open.
 
@@ -43,7 +51,13 @@ def public_base_url():
     if configured:
         return configured.rstrip("/") + "/"
     parts = urlsplit(request.url_root)
-    if (parts.hostname or "").lower() in LOCAL_HOSTS:
+    host = (parts.hostname or "").lower()
+    if parts.scheme == "http" and host not in LOCAL_HOSTS and "." in host and not _is_ip(host) \
+            and not host.endswith(".local"):
+        # Deployed behind a proxy that didn't say it was HTTPS: public sites are served over https,
+        # and an http:// QR link may be blocked or redirected by phones.
+        parts = parts._replace(scheme="https")
+    if host in LOCAL_HOSTS:
         ip = _lan_ip()
         if ip:
             netloc = f"{ip}:{parts.port}" if parts.port else ip
@@ -80,6 +94,10 @@ def generate_qr_bytes(data: str) -> bytes:
 
 def market_price_search_url(base_url: str, market_id: int) -> str:
     return f"{base_url.rstrip('/')}/prices/search?market_id={market_id}"
+
+
+def vendor_qr_url(base_url: str, vendor_id: int) -> str:
+    return f"{base_url.rstrip('/')}/vendor/{vendor_id}?src=qr"
 
 
 def report_verification_url(base_url: str, report_id: int) -> str:

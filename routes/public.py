@@ -9,7 +9,7 @@ from flask_login import current_user
 from models import Listing, Market, PriceReport, Product, Review, ScanEvent, User
 from utils.helpers import vendor_stats
 from utils.trends import build_trends
-from utils.qr_generator import generate_qr_bytes, market_price_search_url, public_base_url
+from utils.qr_generator import generate_qr_bytes, market_price_search_url, public_base_url, vendor_qr_url
 from utils.notifications import notify
 
 bp = Blueprint("public", __name__)
@@ -151,7 +151,7 @@ def market_qr(market_id):
 
 @bp.route("/qr/vendor/<int:vendor_id>.png")
 def vendor_qr(vendor_id):
-    return _png(f"{public_base_url().rstrip('/')}/vendor/{vendor_id}?src=qr")
+    return _png(vendor_qr_url(public_base_url(), vendor_id))
 
 
 @bp.route("/qr/site.png")
