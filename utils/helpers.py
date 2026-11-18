@@ -70,7 +70,7 @@ def home_endpoint_for(user):
     return {
         "admin": "admin.dashboard",
         "lgu_staff": "lgu.dashboard",
-        "dti_da": "lgu.dashboard",
+        "dti_da": "dti.dashboard",
         "vendor": "vendor.dashboard",
     }.get(user.role, "resident.dashboard")
 

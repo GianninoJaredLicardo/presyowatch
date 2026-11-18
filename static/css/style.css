@@ -1088,3 +1088,117 @@ select.fl-input option:checked { background: var(--primary-soft); color: var(--p
 .pt-empty.pt-empty-inline { position: static; padding: 28px 20px; }
 @media (max-width: 400px) { .pt-spark { display: none; } }
 .pt-price:has(#ptLatest:empty), .pt-asof:empty { display: none; }
+
+/* ---- DTI portal (blue: national agency, distinct from the green LGU side) ---- */
+.min-w-0 { min-width: 0; }
+.flex-none { flex: none; }
+.dti-ink { color: var(--blue); }
+.hero-card.dti {
+  background:
+    radial-gradient(420px 200px at 100% 0%, rgba(255, 255, 255, .16), transparent 60%),
+    linear-gradient(135deg, #2563a6 0%, #163e66 100%);
+  box-shadow: 0 10px 30px rgba(22, 62, 102, .3);
+}
+.dti-badge {
+  position: absolute; right: 16px; top: 16px; z-index: 1; display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 10px; border-radius: 999px; background: #fff; color: #163e66; font-size: .72rem; font-weight: 800; letter-spacing: .04em;
+}
+.dti-callout {
+  display: flex; align-items: center; gap: 12px; margin-top: 12px; padding: 12px 14px; border-radius: 16px;
+  background: #e8f0fb; border: 1px solid #c9daf2; color: #163e66; text-decoration: none;
+}
+.dti-callout:hover { color: #163e66; background: #dde9f9; }
+.dti-callout b { display: block; font-size: .92rem; }
+.dti-callout small { display: block; font-size: .78rem; opacity: .8; }
+.dti-callout-icon { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 12px; background: #2563a6; color: #fff; flex: none; }
+.dti-actions { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 12px; }
+.dti-actions a {
+  display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 12px 4px; border-radius: 16px; text-align: center;
+  background: #fff; border: 1px solid var(--line); color: var(--ink); text-decoration: none; box-shadow: var(--shadow-sm);
+  transition: transform .15s, box-shadow .15s;
+}
+.dti-actions a:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); color: var(--ink); }
+.dti-actions i { display: grid; place-items: center; width: 38px; height: 38px; margin-bottom: 4px; border-radius: 12px; background: #e8f0fb; color: #2563a6; }
+.dti-actions b { font-size: .8rem; }
+.dti-actions small { font-size: .66rem; color: var(--muted); line-height: 1.2; }
+.dti-icon { background: #e8f0fb !important; color: #2563a6 !important; }
+
+.dti-pct { display: inline-flex; align-items: center; gap: 5px; padding: 4px 9px; border-radius: 10px; font-size: .78rem; font-weight: 700; white-space: nowrap; }
+.dti-pct.up { background: var(--red-soft); color: var(--red-dark); }
+.dti-pct.ok { background: var(--primary-soft); color: var(--primary-dark); }
+.dti-pct.none { background: var(--chip); color: var(--muted); font-weight: 600; }
+.dti-empty { padding: 18px 10px; text-align: center; color: var(--muted); font-size: .88rem; }
+.dti-empty i { margin-right: 6px; opacity: .7; }
+
+.dti-vrow { display: flex; justify-content: space-between; gap: 12px; padding: 14px 16px; margin-bottom: 10px; }
+.dti-vrow b { display: block; color: var(--title); }
+.dti-vrow small { display: block; color: var(--muted); font-size: .78rem; }
+.dti-compare { margin-top: 4px; font-weight: 700; color: var(--ink); font-size: .9rem; }
+.dti-compare span { font-weight: 500; color: var(--muted); font-size: .8rem; }
+.dti-notice-form summary { list-style: none; display: inline-flex; cursor: pointer; }
+.dti-notice-form summary::-webkit-details-marker { display: none; }
+.dti-notice-form[open] summary { display: none; }
+.dti-notice-form form { width: 220px; max-width: 60vw; text-align: left; }
+
+.dti-seg { display: flex; gap: 4px; padding: 4px; margin-bottom: 12px; border-radius: 14px; background: #e6ecf3; }
+.dti-seg a {
+  flex: 1; padding: 9px 6px; border-radius: 10px; text-align: center; font-size: .84rem; font-weight: 700;
+  color: #5a6b80; text-decoration: none; white-space: nowrap;
+}
+.dti-seg a:hover { color: #163e66; }
+.dti-seg a.active { background: #fff; color: #163e66; box-shadow: 0 1px 4px rgba(0, 0, 0, .1); }
+.dti-seg a span { display: inline-grid; place-items: center; min-width: 20px; height: 20px; margin-left: 4px; padding: 0 5px; border-radius: 10px; background: #2563a6; color: #fff; font-size: .7rem; }
+
+.dti-rate small { color: var(--muted); font-size: .8rem; }
+.dti-rate-n { font-size: 2.3rem; font-weight: 800; color: #163e66; line-height: 1.1; letter-spacing: -.02em; }
+.dti-rate-n span { font-size: 1.2rem; margin-left: 2px; }
+.dti-bar { height: 8px; margin-top: 10px; border-radius: 99px; background: var(--red-soft); overflow: hidden; }
+.dti-bar span { display: block; height: 100%; border-radius: 99px; background: linear-gradient(90deg, #2a9a5a, var(--primary)); }
+.dti-crow { display: flex; align-items: center; gap: 10px; padding: 12px 2px; }
+.dti-crow + .dti-crow { border-top: 1px solid var(--line); }
+.dti-crow b { display: block; color: var(--ink); }
+.dti-crow small { display: block; font-size: .78rem; color: var(--muted); }
+
+.dti-srp-row { padding: 12px 2px; }
+.dti-srp-row + .dti-srp-row { border-top: 1px solid var(--line); }
+.dti-srp-row b { color: var(--ink); }
+.dti-srp-price { font-size: 1.15rem; font-weight: 800; color: #163e66; }
+.dti-srp-price small { margin-left: 3px; font-size: .75rem; font-weight: 600; color: var(--muted); }
+.dti-history summary, .dti-add summary, .dti-close summary { cursor: pointer; font-size: .82rem; font-weight: 600; color: #2563a6; }
+.dti-history[open] { width: 100%; margin-right: 10px; }
+.dti-add summary { font-size: .88rem; }
+.dti-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.dti-chip {
+  border: 1px dashed #b9cbe3; background: #fff; color: #163e66; border-radius: 999px; padding: 6px 12px; font-size: .82rem; font-weight: 600;
+}
+.dti-chip:hover { background: #e8f0fb; }
+.dti-chip i { font-size: .7rem; margin-left: 4px; }
+
+.dti-case { padding: 16px; margin-bottom: 12px; }
+.dti-case-id { font-size: .72rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.dti-case-title { display: block; font-size: 1.05rem; color: var(--title); margin-top: 2px; }
+.dti-case-facts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; }
+.dti-case-facts div { padding: 8px; border-radius: 12px; background: var(--surface-2); text-align: center; }
+.dti-case-facts small { display: block; font-size: .68rem; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+.dti-case-facts b { font-size: .92rem; }
+.dti-case-notice { padding: 8px 10px; border-radius: 10px; background: var(--accent-soft); color: #7a5200; }
+.dti-notes { padding: 8px 10px; border-left: 3px solid #b9cbe3; background: #f4f7fb; border-radius: 0 10px 10px 0; font-size: .8rem; color: #33455a; }
+.dti-case-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.dti-case-actions:empty { display: none; }
+
+.dti-export { display: flex; align-items: center; gap: 12px; }
+.dti-export b { display: block; color: var(--ink); font-size: .92rem; }
+.dti-export small { display: block; color: var(--muted); font-size: .76rem; }
+.dti-export-icon { display: grid; place-items: center; flex: none; width: 40px; height: 40px; border-radius: 12px; background: #e8f0fb; color: #2563a6; }
+.dti-export-icon.red { background: var(--red-soft); color: var(--red-dark); }
+.dti-export-icon.amber { background: var(--accent-soft); color: #8a5a00; }
+.dti-export-btns { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 0 52px; }
+.dti-file { flex: none; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 10px; font-size: .66rem; font-weight: 800; background: #e8f0fb; color: #2563a6; }
+.dti-file.pdf { background: var(--red-soft); color: var(--red-dark); }
+.dti-file.csv, .dti-file.xlsx { background: var(--primary-soft); color: var(--primary-dark); }
+.dti-info { display: flex; gap: 10px; align-items: center; padding: 6px 0; font-size: .9rem; }
+.dti-info i { width: 18px; text-align: center; color: #2563a6; }
+@media (max-width: 400px) { .dti-actions small { display: none; } }
+.dti-solid, .dti-solid:hover { background: linear-gradient(180deg, #2b6cb0 0%, #1d4e7c 100%) !important; border-color: #1d4e7c !important; color: #fff !important; box-shadow: 0 8px 18px rgba(29, 78, 124, .28) !important; }
+.portal-dti .bottom-nav a.active { color: #1d4e7c; }
+.portal-dti .bottom-nav a.active i { background: #e5eefb; color: #1d4e7c; }

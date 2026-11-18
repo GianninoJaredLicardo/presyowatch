@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+{% block title %}Cases — PresyoWatch{% endblock %}
+{% block content %}
+{% set labels = {'new': ('New', 'blue'), 'investigating': ('Investigating', 'pending'), 'closed': ('Closed', 'gray')} %}
+<h4 class="page-title mb-1">Cases</h4>
+<p class="small text-muted mb-3">Price cases escalated by LGUs, and the notices of violation you've issued.</p>
+
+<div class="dti-seg">
+  <a href="{{ url_for('dti.cases', tab='open') }}" class="{{ 'active' if tab == 'open' }}">Open{% if counts.open %} <span>{{ counts.open }}</span>{% endif %}</a>
+  <a href="{{ url_for('dti.cases', tab='closed') }}" class="{{ 'active' if tab == 'closed' }}">Closed</a>
+  <a href="{{ url_for('dti.cases', tab='notices') }}" class="{{ 'active' if tab == 'notices' }}">Notices{% if counts.notices %} <span>{{ counts.notices }}</span>{% endif %}</a>
+</div>
+
+{% if tab in ('open', 'closed') %}
+  {% for it in items %}
+  {% set a = it.alert %}
+  {% set st = labels.get(a.dti_status, ('New', 'blue')) %}
+  <div class="pw-card white dti-case">
+    <div class="d-flex justify-content-between align-items-start gap-2">
+      <div class="min-w-0">
+        <div class="dti-case-id">Case #{{ a.alert_id }} · escalated {{ (a.escalated_at or a.created_at)|timeago }}</div>
+        <b class="dti-case-title">{{ a.product_name }}</b>
+        <small class="d-block text-muted"><i class="fa-solid fa-location-dot"></i> {{ a.market_name or '—' }}</small>
+      </div>
+      <span class="pill {{ st[1] }}">{{ st[0] }}</span>
+    </div>
+
+    <div class="dti-case-facts">
+      <div><small>Reported</small><b>₱{{ (a.reported_price or 0)|peso }}</b></div>
+      <div><small>Baseline</small><b>{{ ('₱' ~ ((a.baseline or 0)|peso)) if a.baseline else '—' }}</b></div>
+      <div><small>Above</small><b class="text-danger">{{ ('+%.0f'|format(a.spike_percent)) ~ '%' if a.spike_percent else '—' }}</b></div>
+    </div>
+
+    <div class="small mt-2">
+      <i class="fa-solid fa-store text-muted"></i>
+      {% if it.vendor_name %}Vendor: <b>{{ it.vendor_name }}</b>{% else %}<span class="text-muted">Vendor not identified in the report</span>{% endif %}
+      {% if it.report %}<span class="text-muted"> · reported {{ it.report.report_date.strftime('%b %d') if it.report.report_date else '' }}</span>
+        {% if it.report.photo_path %} · <a href="{{ file_url(it.report.photo_path) }}" target="_blank" rel="noopener">photo</a>{% endif %}{% endif %}
+    </div>
+
+    {% if it.notices %}
+    <div class="dti-case-notice small mt-2"><i class="fa-solid fa-gavel"></i>
+      Notice #{{ it.notices[0].notice_id }} {{ 'complied' if it.notices[0].status == 'complied' else ('pending' if it.notices[0].status == 'issued' else 'closed') }}
+      · sent {{ it.notices[0].created_at|timeago }}</div>
+    {% endif %}
+
+    {% if a.dti_notes %}
+    <div class="dti-notes mt-2">{% for line in a.dti_notes.split('\n') %}<div>{{ line }}</div>{% endfor %}</div>
+    {% endif %}
+
+    {% if tab == 'closed' %}
+      <div class="d-flex justify-content-between align-items-center mt-3">
+        <span class="small"><i class="fa-solid fa-flag-checkered text-muted"></i> {{ outcomes.get(a.dti_outcome, 'Closed') }}</span>
+        <form method="POST" action="{{ url_for('dti.update_case', alert_id=a.alert_id) }}">
+          <input type="hidden" name="action" value="reopen">
+          <button class="btn-pale btn-sm-pw" type="submit"><i class="fa-solid fa-rotate-left"></i> Reopen</button>
+        </form>
+      </div>
+    {% else %}
+      <div class="dti-case-actions">
+        {% if a.dti_status == 'new' %}
+        <form method="POST" action="{{ url_for('dti.update_case', alert_id=a.alert_id) }}">
+          <input type="hidden" name="action" value="investigate">
+          <button class="btn-blue btn-sm-pw" type="submit"><i class="fa-solid fa-magnifying-glass"></i> Start investigation</button>
+        </form>
+        {% endif %}
+        {% if it.listing and (it.listing.price or 0) > 0 and not (it.notices and it.notices[0].status == 'issued') %}
+        <form method="POST" action="{{ url_for('dti.issue_notice') }}">
+          <input type="hidden" name="listing_id" value="{{ it.listing.listing_id }}">
+          <input type="hidden" name="alert_id" value="{{ a.alert_id }}">
+          <input type="hidden" name="next" value="{{ url_for('dti.cases') }}">
+          <button class="btn-red btn-sm-pw" type="submit"><i class="fa-solid fa-gavel"></i> Issue notice</button>
+        </form>
+        {% endif %}
+      </div>
+      <details class="dti-close mt-2">
+        <summary><i class="fa-solid fa-circle-check"></i> Close case</summary>
+        <form method="POST" action="{{ url_for('dti.update_case', alert_id=a.alert_id) }}" class="mt-2">
+          <input type="hidden" name="action" value="close">
+          <select class="input-pw mb-2" name="outcome" required>
+            <option value="" selected disabled>Outcome</option>
+            {% for k, v in outcomes.items() %}<option value="{{ k }}">{{ v }}</option>{% endfor %}
+          </select>
+          <textarea class="input-pw" name="notes" maxlength="1000" placeholder="Findings / notes (optional)"></textarea>
+          <button class="btn-pw btn-sm-pw w-100 mt-2" type="submit">Close case</button>
+        </form>
+      </details>
+    {% endif %}
+  </div>
+  {% else %}
+  <div class="pw-card white dti-empty">
+    <i class="fa-solid fa-{{ 'inbox' if tab == 'open' else 'box-archive' }}"></i>
+    {{ 'No open cases. LGUs escalate serious price spikes here.' if tab == 'open' else 'No closed cases yet.' }}
+  </div>
+  {% endfor %}
+
+{% else %}
+  {% for n in notices %}
+  <div class="pw-card white dti-vrow">
+    <div class="min-w-0">
+      <div class="dti-case-id">Notice #{{ n.notice_id }} · {{ n.created_at|localtime('%b %d, %Y') }}</div>
+      <b>{{ n.vendor_label }}</b>
+      <div class="dti-compare">{{ n.product_name }}: ₱{{ n.price|peso }} <span>vs SRP ₱{{ n.srp|peso }}</span></div>
+      {% if n.status == 'complied' and n.complied_at %}<small class="text-success"><i class="fa-solid fa-check"></i> Price lowered {{ n.complied_at|timeago }}</small>{% endif %}
+    </div>
+    <div class="text-end flex-none">
+      {% if n.status == 'issued' %}
+        <span class="pill pending">Pending</span>
+        <form method="POST" action="{{ url_for('dti.close_notice', notice_id=n.notice_id) }}" class="mt-2"
+              onsubmit="return confirm('Close this notice without waiting for the vendor to comply?')">
+          <button class="btn-pale btn-sm-pw" type="submit">Close</button>
+        </form>
+      {% elif n.status == 'complied' %}<span class="pill green">Complied</span>
+      {% else %}<span class="pill gray">Closed</span>{% endif %}
+    </div>
+  </div>
+  {% else %}
+  <div class="pw-card white dti-empty"><i class="fa-solid fa-gavel"></i> No notices issued yet. Issue them from Monitor or from a case.</div>
+  {% endfor %}
+{% endif %}
+{% endblock %}

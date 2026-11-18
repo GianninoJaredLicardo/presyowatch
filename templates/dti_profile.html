@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}DTI Profile — PresyoWatch{% endblock %}
+{% block content %}
+{% set u = nav_current_user %}
+<div class="pw-card hero-card dti mt-2">
+  <span class="dti-badge"><i class="fa-solid fa-scale-balanced"></i> DTI</span>
+  <div class="eyebrow">Department of Trade and Industry</div>
+  <h4>{{ u.org_name or u.full_name }}</h4>
+  <div class="sub">{{ u.division or 'Consumer Protection · Price Monitoring' }}</div>
+  <div class="stat-row c2">
+    <div class="stat-tile"><div class="n">{{ notices_issued }}</div><div class="l">Notices issued</div></div>
+    <div class="stat-tile"><div class="n">{{ cases_closed }}</div><div class="l">Cases closed</div></div>
+  </div>
+</div>
+
+<div class="pw-card white position-relative">
+  <a class="edit-btn" href="{{ url_for('auth.edit_account') }}" aria-label="Edit profile"><i class="fa-regular fa-pen-to-square"></i></a>
+  <div class="card-title">Account</div>
+  <div class="dti-info"><i class="fa-solid fa-user"></i><span>{{ u.full_name }}{% if u.contact_person %} · {{ u.contact_person }}{% endif %}</span></div>
+  <div class="dti-info"><i class="fa-solid fa-envelope"></i><span>{{ u.email }}</span></div>
+  <div class="dti-info"><i class="fa-solid fa-phone"></i><span>{{ u.contact_number or '—' }}</span></div>
+  <div class="dti-info"><i class="fa-solid fa-location-dot"></i><span>{{ [u.address, u.city]|select|join(', ') or '—' }}</span></div>
+</div>
+
+<h5 class="page-title sm">Your recent activity</h5>
+<div class="pw-card white">
+  {% for l in logs %}
+  <div class="row-line"><div class="min-w-0"><div class="fw-semibold small">{{ l.action.replace('_', ' ')|capitalize }}</div>
+    <small class="text-muted text-truncate d-block">{{ l.detail }}</small></div><small class="text-muted flex-none">{{ l.created_at|timeago }}</small></div>
+  {% else %}<div class="dti-empty">No activity yet.</div>{% endfor %}
+</div>
+
+<a href="{{ url_for('auth.change_password') }}" class="pw-card action-card mt-3">
+  <span class="action-icon dti-icon"><i class="fa-solid fa-key"></i></span>
+  <div><div class="action-title">Change password</div><div class="action-sub">Keep your account secure</div></div>
+  <i class="fa-solid fa-chevron-right action-go"></i>
+</a>
+<a class="btn-logout" href="{{ url_for('auth.logout') }}">Log out</a>
+{% endblock %}

@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}DTI Reports — PresyoWatch{% endblock %}
+{% block content %}
+<h4 class="page-title mb-1">Reports</h4>
+<p class="small text-muted mb-3">Download DTI monitoring data, and price reports LGUs have shared with DTI.</p>
+
+<h5 class="page-title sm mt-0">Export</h5>
+<div class="pw-card white">
+  <div class="dti-export">
+    <span class="dti-export-icon"><i class="fa-solid fa-scale-balanced"></i></span>
+    <div class="flex-fill min-w-0"><b>SRP compliance summary</b><small>Each commodity's SRP, market average and listings above SRP</small></div>
+  </div>
+  <div class="dti-export-btns">
+    <a class="btn-pale btn-sm-pw" href="{{ url_for('dti.export_compliance') }}"><i class="fa-solid fa-download"></i> All areas</a>
+    {% for c in cities %}<a class="btn-pale btn-sm-pw" href="{{ url_for('dti.export_compliance', city=c) }}">{{ c }}</a>{% endfor %}
+  </div>
+  <div class="dti-export mt-3">
+    <span class="dti-export-icon red"><i class="fa-solid fa-store-slash"></i></span>
+    <div class="flex-fill min-w-0"><b>Vendors above SRP</b><small>Every listing priced above its SRP, with notice status</small></div>
+    <a class="btn-pale btn-sm-pw" href="{{ url_for('dti.export_compliance', kind='violations') }}"><i class="fa-solid fa-download"></i></a>
+  </div>
+  <div class="dti-export mt-3">
+    <span class="dti-export-icon amber"><i class="fa-solid fa-gavel"></i></span>
+    <div class="flex-fill min-w-0"><b>Notices of violation</b><small>All notices issued, with compliance status</small></div>
+    <a class="btn-pale btn-sm-pw" href="{{ url_for('dti.export_notices') }}"><i class="fa-solid fa-download"></i></a>
+  </div>
+</div>
+
+<h5 class="page-title sm">Shared by LGUs</h5>
+<div class="pw-card white">
+  {% for e in shared %}
+  <div class="row-line">
+    <div class="d-flex gap-3 align-items-center min-w-0">
+      <span class="dti-file {{ e.file_type }}">{{ e.file_type|upper }}</span>
+      <div class="min-w-0"><div class="fw-semibold text-truncate">{{ e.title or 'Price report' }}</div>
+        <small class="text-muted">{{ e.lgu_label }} · {{ e.created_at|localtime('%b %d, %Y') }}</small></div>
+    </div>
+    <a class="btn-pale btn-sm-pw" href="{{ url_for('dti.download_shared', export_id=e.export_id) }}" aria-label="Download"><i class="fa-solid fa-download"></i></a>
+  </div>
+  {% else %}
+  <div class="dti-empty"><i class="fa-regular fa-folder-open"></i> No reports shared yet. LGUs can tick "share with DTI" when generating a report.</div>
+  {% endfor %}
+</div>
+{% endblock %}

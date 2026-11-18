@@ -13,7 +13,7 @@
     <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
     {% block head %}{% endblock %}
 </head>
-<body>
+<body class="{{ 'portal-dti' if nav_current_user and nav_current_user.is_authenticated and nav_current_user.role == 'dti_da' else '' }}">
 {% set is_admin = nav_current_user.is_authenticated and nav_current_user.role == 'admin' %}
 
 {% if is_admin %}

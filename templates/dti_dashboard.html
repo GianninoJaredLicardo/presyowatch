@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% from "_ui.html" import stat %}
+{% block title %}DTI Dashboard — PresyoWatch{% endblock %}
+{% block content %}
+{% set u = nav_current_user %}
+
+<div class="pw-card hero-card dti mt-2">
+  <span class="dti-badge"><i class="fa-solid fa-scale-balanced"></i> DTI</span>
+  <div class="eyebrow">Department of Trade and Industry</div>
+  <h4>{{ u.org_name or u.full_name }}</h4>
+  <div class="sub"><i class="fa-solid fa-landmark"></i> {{ u.division or 'Consumer Protection · Price Monitoring' }}</div>
+  <div class="stat-row c4">
+    {{ stat(((rate|string) ~ '%') if rate is not none else '—', 'SRP compliance') }}
+    {{ stat(open_cases|length, 'Open cases') }}
+    {{ stat(notices_open, 'Notices pending') }}
+    {{ stat(srp_count, 'SRPs set') }}
+  </div>
+</div>
+
+{% if new_cases %}
+<a href="{{ url_for('dti.cases') }}" class="dti-callout">
+  <span class="dti-callout-icon"><i class="fa-solid fa-inbox"></i></span>
+  <span class="flex-fill">
+    <b>{{ new_cases|length }} new case{{ 's' if new_cases|length != 1 }} escalated by LGUs</b>
+    <small>{{ new_cases[0].product_name }} at {{ new_cases[0].market_name }}{% if new_cases|length > 1 %} and {{ new_cases|length - 1 }} more{% endif %}</small>
+  </span>
+  <i class="fa-solid fa-chevron-right"></i>
+</a>
+{% endif %}
+
+<div class="dti-actions">
+  <a href="{{ url_for('dti.srp') }}"><i class="fa-solid fa-tags"></i><b>Set SRP</b><small>Issue price bulletins</small></a>
+  <a href="{{ url_for('dti.monitor') }}"><i class="fa-solid fa-scale-balanced"></i><b>Monitor</b><small>Check compliance</small></a>
+  <a href="{{ url_for('dti.cases') }}"><i class="fa-solid fa-gavel"></i><b>Cases</b><small>Escalations &amp; notices</small></a>
+  <a href="{{ url_for('dti.reports') }}"><i class="fa-solid fa-file-lines"></i><b>Reports</b><small>Exports &amp; LGU reports</small></a>
+</div>
+
+<div class="d-flex justify-content-between align-items-end mt-3">
+  <h5 class="page-title sm m-0">Prices above SRP</h5>
+  <a class="small fw-semibold" href="{{ url_for('dti.monitor') }}">See all</a>
+</div>
+<div class="pw-card white mt-2">
+  {% for r in above_srp %}
+  <div class="row-line">
+    <div class="min-w-0">
+      <div class="fw-semibold">{{ r.product.product_name }}</div>
+      <small class="text-muted">Market avg ₱{{ r.avg|peso }} · SRP ₱{{ r.srp|peso }} / {{ r.product.unit }}</small>
+    </div>
+    <span class="dti-pct up"><i class="fa-solid fa-arrow-trend-up"></i> {{ '%.1f'|format(r.pct) }}%</span>
+  </div>
+  {% else %}
+  <div class="dti-empty"><i class="fa-solid fa-circle-check"></i> Market prices are at or below SRP for every monitored commodity.</div>
+  {% endfor %}
+</div>
+
+{% if violations %}
+<div class="d-flex justify-content-between align-items-end mt-3">
+  <h5 class="page-title sm m-0">Vendors above SRP <span class="pill red ms-1">{{ violation_count }}</span></h5>
+  <a class="small fw-semibold" href="{{ url_for('dti.monitor') }}#vendors">See all</a>
+</div>
+{% for v in violations %}
+<div class="pw-card white dti-vrow mt-2">
+  <div class="min-w-0">
+    <b>{{ v.vendor_name }}</b>
+    <small>{{ v.product }} · {{ v.market }}</small>
+    <div class="dti-compare">₱{{ v.price|peso }} <span>vs SRP ₱{{ v.srp|peso }} / {{ v.unit }}</span></div>
+  </div>
+  <div class="text-end">
+    <span class="dti-pct up">+{{ '%.0f'|format(v.over_pct) }}%</span>
+    {% if v.notice %}
+      <div class="small text-muted mt-2"><i class="fa-regular fa-clock"></i> Notice pending</div>
+    {% else %}
+      <form method="POST" action="{{ url_for('dti.issue_notice') }}" class="mt-2">
+        <input type="hidden" name="listing_id" value="{{ v.listing.listing_id }}">
+        <input type="hidden" name="next" value="{{ url_for('dti.dashboard') }}">
+        <button class="btn-red btn-sm-pw" type="submit"><i class="fa-solid fa-gavel"></i> Issue notice</button>
+      </form>
+    {% endif %}
+  </div>
+</div>
+{% endfor %}
+{% endif %}
+
+<h5 class="page-title sm">SRP bulletin</h5>
+<a href="{{ url_for('dti.srp') }}" class="pw-card action-card">
+  <span class="action-icon dti-icon"><i class="fa-solid fa-file-invoice"></i></span>
+  <div>
+    <div class="action-title">{{ srp_count }} commodit{{ 'y' if srp_count == 1 else 'ies' }} with an SRP</div>
+    <div class="action-sub">{% if last_bulletin %}Last updated {{ last_bulletin.strftime('%B %d, %Y') }}{% else %}No SRP issued yet{% endif %}</div>
+  </div>
+  <i class="fa-solid fa-chevron-right action-go"></i>
+</a>
+
+<h5 class="page-title sm">Reports shared by LGUs</h5>
+<div class="pw-card white">
+  {% for e in shared %}
+  <div class="row-line">
+    <div class="min-w-0"><div class="fw-semibold text-truncate">{{ e.title or 'Price report' }}</div>
+      <small class="text-muted">{{ e.file_type|upper }} · {{ e.created_at|timeago }}</small></div>
+    <a class="btn-pale btn-sm-pw" href="{{ url_for('dti.download_shared', export_id=e.export_id) }}"><i class="fa-solid fa-download"></i></a>
+  </div>
+  {% else %}
+  <div class="dti-empty"><i class="fa-regular fa-folder-open"></i> No reports shared yet.</div>
+  {% endfor %}
+</div>
+{% endblock %}

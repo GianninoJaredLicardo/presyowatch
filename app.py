@@ -31,6 +31,14 @@ NAV = {
         ("Manage", "store", "lgu.manage", ()),
         ("Profile", "user", "lgu.profile", ("lgu.logs", "lgu.qr_codes", "auth.edit_account", "auth.change_password")),
     ],
+    "dti": [
+        ("Home", "house", "dti.dashboard", ()),
+        ("SRP", "tags", "dti.srp", ()),
+        ("Monitor", "scale-balanced", "dti.monitor", ()),
+        ("Cases", "gavel", "dti.cases", ()),
+        ("Reports", "file-lines", "dti.reports", ()),
+        ("Profile", "user", "dti.profile", ("auth.edit_account", "auth.change_password")),
+    ],
 }
 
 
@@ -65,6 +73,7 @@ def create_app():
     from routes.notifications import bp as notifications_bp
     from routes.files import bp as files_bp
     from routes.payments import bp as payments_bp
+    from routes.dti import bp as dti_bp
     from utils.file_store import file_url
 
     app.register_blueprint(auth_bp)
@@ -76,6 +85,7 @@ def create_app():
     app.register_blueprint(notifications_bp, url_prefix="/notifications")
     app.register_blueprint(files_bp, url_prefix="/files")
     app.register_blueprint(payments_bp, url_prefix="/payments")
+    app.register_blueprint(dti_bp, url_prefix="/dti")
     app.jinja_env.globals["file_url"] = file_url
 
     app.jinja_env.filters["timeago"] = timeago
@@ -87,7 +97,7 @@ def create_app():
     def inject_globals():
         group = None
         if current_user.is_authenticated:
-            group = {"lgu_staff": "lgu", "dti_da": "lgu"}.get(current_user.role, current_user.role)
+            group = {"lgu_staff": "lgu", "dti_da": "dti"}.get(current_user.role, current_user.role)
         items = [
             {"label": label, "icon": icon, "endpoint": ep, "active": request.endpoint in (ep, *extra)}
             for label, icon, ep, extra in NAV.get(group, [])

@@ -327,7 +327,7 @@ def edit_account():
 
 def _profile_url():
     endpoint = {"resident": "resident.profile", "vendor": "vendor.profile",
-                "lgu_staff": "lgu.profile", "dti_da": "lgu.profile"}.get(current_user.role)
+                "lgu_staff": "lgu.profile", "dti_da": "dti.profile"}.get(current_user.role)
     return url_for(endpoint) if endpoint else url_for("public.home")
 
 

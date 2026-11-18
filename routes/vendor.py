@@ -5,7 +5,7 @@ from datetime import date, datetime, timedelta
 from flask import Blueprint, abort, render_template, request, redirect, url_for, flash, Response
 from flask_login import current_user
 
-from models import Listing, Market, Product, Review, ScanEvent
+from models import DtiNotice, Listing, Market, Product, Review, ScanEvent
 from utils.helpers import log_action, refresh_rules_for_product, role_required, vendor_stats
 from utils.csv_import import parse_listing_file
 from utils.notifications import notify
@@ -56,11 +56,22 @@ def _weekly_scans():
 @vendor_only
 def dashboard():
     listings = _my_listings()
+    by_id = {l.listing_id: l for l in listings}
+    dti_notices = []
+    for n in DtiNotice.find(vendor_id=current_user.user_id, status="issued"):
+        l = by_id.get(n.listing_id)
+        if l is None or (l.price is not None and float(l.price) <= float(n.srp)):
+            n.status, n.complied_at = "complied", datetime.utcnow()  # price is back within SRP
+            n.save()
+        else:
+            n.listing = l
+            dti_notices.append(n)
     reviews = sorted(Review.find(vendor_id=current_user.user_id), key=lambda r: r.created_at, reverse=True)
     return render_template(
         "vendor_dashboard.html",
         listings=listings,
         needs_attention=[l for l in listings if l.stock_status != "in_stock"],
+        dti_notices=dti_notices,
         flagged_items=[l for l in listings if l.is_price_flagged],
         # LGU price warnings from Flagged Vendors; one clears once the vendor updates that listing.
         warnings=[l for l in listings if l.lgu_warned_at and l.lgu_warned_at >= (l.updated_at or l.lgu_warned_at)],

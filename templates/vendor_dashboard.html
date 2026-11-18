@@ -31,6 +31,17 @@
 </div>
 {% endfor %}
 
+{% for n in dti_notices %}
+<div class="spike-card dti-vendor-notice">
+  <div class="title"><i class="fa-solid fa-gavel"></i> Notice of price violation from DTI</div>
+  <div class="small mt-1">{{ n.message }}</div>
+  <div class="d-flex justify-content-between align-items-center mt-2">
+    <small class="text-muted">Notice #{{ n.notice_id }} · {{ n.created_at|localtime }}</small>
+    <a class="btn-pw btn-sm-pw" href="{{ url_for('vendor.listing_form', listing_id=n.listing_id) }}">Update price</a>
+  </div>
+</div>
+{% endfor %}
+
 {% for l in warnings %}
 <div class="spike-card">
   <div class="title"><i class="fa-solid fa-triangle-exclamation"></i> Price warning from your LGU</div>

@@ -3,10 +3,17 @@
 {% block content %}
 
 <div class="d-flex justify-content-between align-items-center mt-3 mb-3">
-  <h4 class="page-title mb-0"><i class="fa-solid fa-tags"></i> DTI SRP Management</h4>
+  <h4 class="page-title mb-0"><i class="fa-solid fa-tags"></i> DTI Suggested Retail Prices</h4>
   <a href="{{ url_for('lgu.dashboard') }}" class="btn-pw-outline btn-sm-pw">Back to Dashboard</a>
 </div>
 
+{% if current_user.role != 'admin' %}
+<div class="pw-card tint mb-3 d-flex gap-3 align-items-center">
+  <i class="fa-solid fa-circle-info" style="color:var(--blue);font-size:1.3rem"></i>
+  <div class="small">Suggested Retail Prices are issued by <b>DTI</b>. This page shows the current SRPs used to flag
+    overpriced listings in your markets. Contact your DTI provincial office about SRP changes.</div>
+</div>
+{% else %}
 <!-- Fake Crawler Button to satisfy the "Web Crawling" module -->
 <div class="pw-card tint mb-3 d-flex justify-content-between align-items-center">
   <div>
@@ -18,7 +25,9 @@
   </button>
 </div>
 
+{% endif %}
 <div class="row g-3">
+  {% if current_user.role == 'admin' %}
   <!-- Left Side: Form to Add SRP -->
   <div class="col-md-5">
     <div class="pw-card">
@@ -42,8 +51,9 @@
     </div>
   </div>
 
+  {% endif %}
   <!-- Right Side: Current SRP List and Logs -->
-  <div class="col-md-7">
+  <div class="{{ 'col-md-7' if current_user.role == 'admin' else 'col-12' }}">
     <div class="pw-card mb-3">
       <h6 class="mb-3">Current SRP Baselines</h6>
       <table class="table table-sm">

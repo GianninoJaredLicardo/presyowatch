@@ -22,7 +22,7 @@ from utils.qr_generator import generate_qr_bytes, is_local_network_url, market_p
 from utils.report_generator import build_csv_report, build_pdf_report, build_xlsx_report
 
 bp = Blueprint("lgu", __name__)
-lgu_only = role_required("lgu_staff", "dti_da", "admin")
+lgu_only = role_required("lgu_staff", "admin")  # DTI staff use their own portal (routes/dti.py)
 
 # LGU actions (vendor management, subscription). Monitoring and enforcement are the LGU's job,
 # so only LGU staff may act; DTI/DA and the site admin can view the flagged list but not act on it.
@@ -258,6 +258,9 @@ def stats():
 @bp.route("/srp-management", methods=["GET", "POST"])
 @lgu_only
 def srp_management():
+    # SRPs are issued by DTI (DTI portal → SRP). LGU staff see them here read-only.
+    if request.method == "POST" and current_user.role != "admin":
+        abort(403)
     if request.method == "POST":
         product_id = request.form.get("product_id", type=int)
         srp_price = request.form.get("srp_price", type=float)
@@ -713,6 +716,8 @@ def approve_vendor(vendor_id):
 def _alert_action(alert_id, status, label):
     alert = Alert.get_or_404(alert_id)
     alert.status = status
+    if status == "escalated" and not alert.dti_status:
+        alert.escalated_at, alert.dti_status = datetime.utcnow(), "new"  # appears in DTI's Cases
     
     if status == "resolved":
         alert.is_resolved = True

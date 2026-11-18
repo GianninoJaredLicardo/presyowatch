@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}SRP Compliance — PresyoWatch{% endblock %}
+{% block content %}
+<h4 class="page-title mb-1">SRP Compliance</h4>
+<p class="small text-muted mb-3">Vendor prices and LGU-verified market prices compared with your SRPs.</p>
+
+<div class="dti-seg">
+  <a href="{{ url_for('dti.monitor') }}" class="{{ 'active' if not city }}">All areas</a>
+  {% for c in cities %}<a href="{{ url_for('dti.monitor', city=c) }}" class="{{ 'active' if city == c }}">{{ c }}</a>{% endfor %}
+</div>
+
+<div class="pw-card white dti-rate">
+  <div class="d-flex justify-content-between align-items-end">
+    <div>
+      <small>Vendor listings at or below SRP</small>
+      <div class="dti-rate-n">{{ rate if rate is not none else '—' }}{% if rate is not none %}<span>%</span>{% endif %}</div>
+    </div>
+    <div class="text-end small text-muted">
+      {% set above = violations|length %}{{ above }} listing{{ 's' if above != 1 }} above SRP
+    </div>
+  </div>
+  {% if rate is not none %}
+  <div class="dti-bar"><span style="width: {{ rate }}%"></span></div>
+  {% endif %}
+</div>
+
+<div class="d-flex justify-content-between align-items-end mt-3">
+  <h5 class="page-title sm m-0">By commodity</h5>
+  <a class="small fw-semibold" href="{{ url_for('dti.export_compliance', city=city) }}"><i class="fa-solid fa-download"></i> CSV</a>
+</div>
+<div class="pw-card white mt-2">
+  {% for r in rows %}
+  <div class="dti-crow">
+    <div class="min-w-0 flex-fill">
+      <b>{{ r.product.product_name }}</b>
+      <small>SRP ₱{{ r.srp|peso }} / {{ r.product.unit }}
+        {% if r.avg is not none %} · Market avg ₱{{ r.avg|peso }} <span class="text-muted">({{ r.reports }} report{{ 's' if r.reports != 1 }})</span>{% endif %}</small>
+      {% if r.listings %}<small>{{ r.above }} of {{ r.listings }} vendor listing{{ 's' if r.listings != 1 }} above SRP</small>{% endif %}
+    </div>
+    {% if r.pct is none %}
+      <span class="dti-pct none">No data</span>
+    {% elif r.pct > 0.5 %}
+      <span class="dti-pct up"><i class="fa-solid fa-arrow-trend-up"></i> {{ '%.1f'|format(r.pct) }}%</span>
+    {% else %}
+      <span class="dti-pct ok"><i class="fa-solid fa-check"></i> Within SRP</span>
+    {% endif %}
+  </div>
+  {% else %}
+  <div class="dti-empty"><i class="fa-solid fa-tags"></i> No SRPs yet. <a href="{{ url_for('dti.srp') }}">Issue one</a> to start monitoring.</div>
+  {% endfor %}
+</div>
+<div class="small-note mt-1">Market average uses LGU-verified reports from the last {{ days }} days.</div>
+
+<div class="d-flex justify-content-between align-items-end mt-3" id="vendors">
+  <h5 class="page-title sm m-0">Vendors above SRP <span class="pill red ms-1">{{ violations|length }}</span></h5>
+  {% if violations %}<a class="small fw-semibold" href="{{ url_for('dti.export_compliance', city=city, kind='violations') }}"><i class="fa-solid fa-download"></i> CSV</a>{% endif %}
+</div>
+{% for v in violations %}
+<div class="pw-card white dti-vrow mt-2">
+  <div class="min-w-0">
+    <b>{{ v.vendor_name }}</b>
+    <small><i class="fa-solid fa-location-dot"></i> {{ v.market }}{% if v.city %}, {{ v.city }}{% endif %}</small>
+    <div class="dti-compare">{{ v.product }}: ₱{{ v.price|peso }} <span>vs SRP ₱{{ v.srp|peso }} / {{ v.unit }}</span></div>
+  </div>
+  <div class="text-end flex-none">
+    <span class="dti-pct up">+{{ '%.0f'|format(v.over_pct) }}%</span>
+    {% if v.notice %}
+      <div class="small text-muted mt-2"><i class="fa-regular fa-clock"></i> Notice sent {{ v.notice.created_at|timeago }}</div>
+    {% else %}
+      <details class="dti-notice-form mt-2">
+        <summary class="btn-red btn-sm-pw"><i class="fa-solid fa-gavel"></i> Issue notice</summary>
+        <form method="POST" action="{{ url_for('dti.issue_notice') }}">
+          <input type="hidden" name="listing_id" value="{{ v.listing.listing_id }}">
+          <input type="hidden" name="next" value="{{ url_for('dti.monitor', city=city) }}#vendors">
+          <textarea class="input-pw" name="message" maxlength="500" placeholder="Add a note to the vendor (optional)"></textarea>
+          <button class="btn-red btn-sm-pw w-100 mt-2" type="submit">Send notice of violation</button>
+        </form>
+      </details>
+    {% endif %}
+  </div>
+</div>
+{% else %}
+<div class="pw-card white dti-empty"><i class="fa-solid fa-circle-check"></i> No vendor is pricing above SRP{% if city %} in {{ city }}{% endif %}.</div>
+{% endfor %}
+{% endblock %}

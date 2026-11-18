@@ -264,6 +264,33 @@ class Alert(Model):
         "resolved_by": None,
         "created_at": datetime.utcnow,
         "resolved_at": None,
+        # DTI case handling, once an LGU escalates the alert
+        "escalated_at": None,
+        "dti_status": None,             # None | new | investigating | closed
+        "dti_notes": None,
+        "dti_outcome": None,            # notice_issued | price_justified | vendor_complied | no_violation | other
+        "dti_handled_by": None,
+        "dti_updated_at": None,
+    }
+
+
+class DtiNotice(Model):
+    """Notice of price violation issued by DTI to a vendor (Price Act, RA 7581)."""
+    collection = "dti_notices"
+    id_field = "notice_id"
+    defaults = {
+        "vendor_id": None,
+        "listing_id": None,
+        "product_id": None,
+        "product_name": None,
+        "price": None,                  # vendor's price when the notice was issued
+        "srp": None,
+        "alert_id": None,               # the escalated case it came from, if any
+        "message": None,
+        "status": "issued",             # issued | complied | closed
+        "issued_by": None,
+        "created_at": datetime.utcnow,
+        "complied_at": None,
     }
 
 

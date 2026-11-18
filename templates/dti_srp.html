@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+{% block title %}Suggested Retail Prices — PresyoWatch{% endblock %}
+{% block content %}
+<h4 class="page-title mb-1">Suggested Retail Prices</h4>
+<p class="small text-muted mb-3">SRPs you issue here are what PresyoWatch uses to flag overpricing, show shoppers the fair price, and check vendor compliance.</p>
+
+<form method="POST" class="pw-card white" id="srpForm">
+  <div class="card-title"><i class="fa-solid fa-file-pen dti-ink"></i> Issue or update an SRP</div>
+  <div class="field">
+    <label class="form-label" for="srpProduct">Commodity</label>
+    <select class="input-pw" id="srpProduct" name="product_id">
+      <option value="">Search a commodity</option>
+      {% for p in products %}
+      {% set cur = history.get(p.product_id) %}
+      <option value="{{ p.product_id }}" data-unit="{{ p.unit or 'unit' }}" {{ 'selected' if focus == p.product_id }}
+        data-sub="{{ ('SRP ₱' ~ ('%.2f'|format(cur[0].srp_price|float))) if cur else 'no SRP yet' }}">{{ p.product_name }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="row g-2">
+    <div class="col-6 field">
+      <label class="form-label" for="srpPrice">SRP <span class="fl-opt" id="srpUnit"></span></label>
+      <input class="input-pw" id="srpPrice" type="number" name="srp_price" step="0.01" min="0.01" placeholder="₱ 0.00" required>
+    </div>
+    <div class="col-6 field">
+      <label class="form-label" for="srpDate">Effective date</label>
+      <input class="input-pw" id="srpDate" type="date" name="bulletin_date" value="{{ today }}" required>
+    </div>
+  </div>
+  <div class="field">
+    <label class="form-label" for="srpSource">Bulletin reference <span class="fl-opt">optional</span></label>
+    <input class="input-pw" id="srpSource" name="source" maxlength="120" placeholder="e.g. DTI SRP Bulletin No. 2026-11">
+  </div>
+  <div class="small-note mb-2" id="srpCurrent" hidden></div>
+  <button class="btn-pw btn-block dti-solid" type="submit"><i class="fa-solid fa-paper-plane"></i> Publish SRP</button>
+</form>
+
+<details class="pw-card white dti-add mt-3">
+  <summary><i class="fa-solid fa-plus"></i> Commodity not on the list? Add it</summary>
+  <form method="POST" action="{{ url_for('dti.add_commodity') }}" class="row g-2 mt-2">
+    <div class="col-12"><input class="input-pw" name="product_name" maxlength="80" placeholder="Commodity name (e.g. Canned sardines 155g)" required></div>
+    <div class="col-6"><input class="input-pw" name="unit" maxlength="20" placeholder="Unit (kg, pc, can)" value="kg"></div>
+    <div class="col-6"><input class="input-pw" name="category" maxlength="40" placeholder="Category"></div>
+    <div class="col-12"><button class="btn-pale btn-block" type="submit">Add commodity</button></div>
+  </form>
+</details>
+
+<h5 class="page-title sm">Current SRPs <span class="pill blue ms-1">{{ with_srp|length }}</span></h5>
+<div class="pw-card white">
+  {% for p in with_srp %}
+  {% set items = history[p.product_id] %}
+  {% set cur = items[0] %}
+  <div class="dti-srp-row">
+    <div class="d-flex justify-content-between align-items-start gap-2">
+      <div class="min-w-0">
+        <b>{{ p.product_name }}</b>
+        <small class="d-block text-muted">Effective {{ cur.bulletin_date.strftime('%b %d, %Y') if cur.bulletin_date else '—' }} · {{ cur.source or 'DTI SRP Bulletin' }}</small>
+      </div>
+      <div class="text-end flex-none">
+        <div class="dti-srp-price">₱{{ cur.srp_price|peso }}<small>/ {{ p.unit }}</small></div>
+        {% if items|length > 1 %}
+          {% set diff = (cur.srp_price|float) - (items[1].srp_price|float) %}
+          <small class="{{ 'text-danger' if diff > 0 else 'text-success' }}">
+            <i class="fa-solid fa-arrow-{{ 'up' if diff > 0 else 'down' }}"></i> ₱{{ '%.2f'|format(diff|abs) }} from previous</small>
+        {% endif %}
+      </div>
+    </div>
+    <div class="d-flex justify-content-between align-items-center mt-2">
+      {% if items|length > 1 %}
+      <details class="dti-history">
+        <summary>History ({{ items|length }})</summary>
+        {% for s in items %}
+        <div class="d-flex justify-content-between small py-1"><span>{{ s.bulletin_date.strftime('%b %d, %Y') if s.bulletin_date else '—' }}
+          <span class="text-muted">· {{ s.source or 'DTI' }}</span></span><b>₱{{ s.srp_price|peso }}</b></div>
+        {% endfor %}
+      </details>
+      {% else %}<span></span>{% endif %}
+      <button class="btn-pale btn-sm-pw" type="button" data-update="{{ p.product_id }}"><i class="fa-solid fa-pen"></i> Update</button>
+    </div>
+  </div>
+  {% else %}
+  <div class="dti-empty"><i class="fa-solid fa-tags"></i> No SRPs issued yet. Use the form above to publish the first one.</div>
+  {% endfor %}
+</div>
+
+{% if without %}
+<h5 class="page-title sm">Commodities without an SRP</h5>
+<div class="dti-chips">
+  {% for p in without %}<button type="button" class="dti-chip" data-update="{{ p.product_id }}">{{ p.product_name }} <i class="fa-solid fa-plus"></i></button>{% endfor %}
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/combo.js') }}"></script>
+<script>
+(() => {
+  const select = document.getElementById('srpProduct');
+  const unit = document.getElementById('srpUnit');
+  const current = document.getElementById('srpCurrent');
+  const combo = PWCombo.enhance(select, { icon: 'fa-basket-shopping' });
+  function sync() {
+    const o = select.selectedOptions[0];
+    unit.textContent = o && o.value ? 'per ' + o.dataset.unit : '';
+    current.hidden = !(o && o.value);
+    if (o && o.value) current.textContent = o.dataset.sub === 'no SRP yet' ? 'This commodity has no SRP yet.' : 'Current: ' + o.dataset.sub + ' / ' + o.dataset.unit;
+  }
+  select.addEventListener('change', sync);
+  sync();
+  document.querySelectorAll('[data-update]').forEach((b) => b.addEventListener('click', () => {
+    select.value = b.dataset.update; combo.refresh(); sync();
+    document.getElementById('srpForm').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    setTimeout(() => document.getElementById('srpPrice').focus({ preventScroll: true }), 350);
+  }));
+  document.getElementById('srpForm').addEventListener('submit', (e) => {
+    if (!select.value) { e.preventDefault(); combo.showAlert('Please choose a commodity.'); combo.attention(); }
+  });
+})();
+</script>
+{% endblock %}
