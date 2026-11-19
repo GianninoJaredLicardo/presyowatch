@@ -4,92 +4,39 @@
 
 <h4 class="page-title">{{ 'Edit Listing' if listing else 'Add Listing' }}</h4>
 
-<form method="POST" class="pw-card">
+<form method="POST" class="pw-card" id="listingForm">
 
   <div class="field">
-    <label class="form-label" for="commodity">Commodity</label>
-    <select class="input-pw" id="commodity" name="product_choice">
-      <option value="">Search a commodity (e.g. rice, galunggong, sibuyas)</option>
-      {% for cat, items in grouped %}
-      <optgroup label="{{ cat if cat in categories else cat|title }}">
-        {% for p in items %}
-        <option value="{{ p.product_id }}" data-unit="{{ p.unit or 'kg' }}" data-category="{{ p.category or '' }}"
-                data-sub="per {{ p.unit or 'kg' }}" {{ 'selected' if listing and listing.product_id == p.product_id }}>{{ p.product_name }}</option>
-        {% endfor %}
-      </optgroup>
+    <label class="form-label" for="category">Category</label>
+    <select class="input-pw" id="category" name="category">
+      <option value="">Search or select a category</option>
+      {% for c in category_options %}
+      <option value="{{ c.name }}" data-sub="{{ c.count }} item{{ 's' if c.count != 1 }}" {{ 'selected' if c.name == selected_category }}>{{ c.name }}</option>
       {% endfor %}
-      <optgroup label="Not on the list?">
-        <option value="new" data-sub="type it in">Other commodity…</option>
-      </optgroup>
     </select>
-    <div class="field mt-2 mb-0" id="newCommodity" hidden>
-      <input class="input-pw" type="text" name="product_name" maxlength="100" placeholder="Name of the commodity">
-    </div>
-    <div class="small-note mt-1">
-      Choosing a commodity lets your price be checked against the DTI SRP and market average.
-    </div>
   </div>
 
   <div class="field">
-    <label class="form-label">Item name</label>
-    <input 
-      class="input-pw" 
-      name="name" 
-      id="itemName"
-      value="{{ listing.name if listing else '' }}" 
-      placeholder="e.g. White Rice (Dinorado)" 
-      required 
-      maxlength="100"
-    >
-  </div>
-
-  <div class="field">
-    <label class="form-label">Category</label>
-    <input 
-      class="input-pw" 
-      type="text" 
-      name="category" 
-      id="category"
-      list="category-list"
-      value="{{ listing.category if listing else '' }}" 
-      placeholder="e.g. Vegetables" 
-      maxlength="50"
-    >
-    <datalist id="category-list">{% for c in categories %}<option value="{{ c }}"></option>{% endfor %}</datalist>
+    <label class="form-label" for="item">Item name</label>
+    <select class="input-pw" id="item" name="product_choice" disabled>
+      <option value="">Choose a category first</option>
+    </select>
+    <div class="mt-2" id="otherItem" hidden>
+      <input class="input-pw" type="text" name="name" id="otherName" maxlength="100"
+             value="{{ listing.name if listing and selected_item == 'new' else '' }}" placeholder="Type the item name">
+    </div>
   </div>
 
   <div class="row g-2">
     <div class="col-7 field">
-      <label class="form-label">Price</label>
-      <input 
-        class="input-pw" 
-        type="number" 
-        step="0.01" 
-        min="0.01" 
-        name="price" 
-        value="{{ listing.price if listing else '' }}" 
-        placeholder="₱" 
-        required
-      >
+      <label class="form-label" for="price">Price</label>
+      <input class="input-pw" id="price" type="number" step="0.01" min="0.01" name="price"
+             value="{{ listing.price if listing else '' }}" placeholder="₱" required>
     </div>
     <div class="col-5 field">
-      <label class="form-label">Unit</label>
-      <input 
-        class="input-pw" 
-        name="unit" 
-        id="unit"
-        value="{{ listing.unit if listing else 'kg' }}"
-      >
+      <label class="form-label" for="unit">Unit</label>
+      <input class="input-pw" id="unit" name="unit" maxlength="20" value="{{ listing.unit if listing else 'kg' }}">
     </div>
-  </div>
-
-  <div class="field">
-    <label class="form-label">Stock</label>
-    <select class="input-pw" name="stock_status">
-      {% for v, t in [('in_stock', 'In Stock'), ('low_stock', 'Low Stock'), ('out_of_stock', 'Out of Stock')] %}
-        <option value="{{ v }}" {{ 'selected' if listing and listing.stock_status == v }}>{{ t }}</option>
-      {% endfor %}
-    </select>
   </div>
 
   <button class="btn-pw btn-block" type="submit">Save Listing</button>
@@ -103,23 +50,51 @@
 <script src="{{ url_for('static', filename='js/combo.js') }}"></script>
 <script>
 (() => {
-  const select = document.getElementById('commodity');
-  const other = document.getElementById('newCommodity');
-  const name = document.getElementById('itemName');
+  const products = {{ product_options|tojson }};   // [{id, name, unit, category}]
   const category = document.getElementById('category');
+  const item = document.getElementById('item');
+  const other = document.getElementById('otherItem');
+  const otherName = document.getElementById('otherName');
   const unit = document.getElementById('unit');
-  PWCombo.enhance(select, { icon: 'fa-basket-shopping' });
-  let autoName = '';  // only replace the item name if the vendor hasn't typed their own
+  const startItem = {{ selected_item|tojson }};
 
-  select.addEventListener('change', () => {
-    const o = select.selectedOptions[0];
-    other.hidden = select.value !== 'new';
-    if (select.value === 'new') { other.querySelector('input').focus(); return; }
-    if (!o || !o.value) return;
-    if (!name.value.trim() || name.value === autoName) { name.value = autoName = o.text; }
-    if (o.dataset.category) category.value = o.dataset.category;
-    if (o.dataset.unit) unit.value = o.dataset.unit;
+  const catBox = PWCombo.enhance(category, { icon: 'fa-layer-group' });
+  const itemBox = PWCombo.enhance(item, {
+    icon: 'fa-basket-shopping',
+    onBlocked: () => { catBox.attention(); return 'Please choose a Category first.'; },
   });
+
+  function fillItems(keep) {
+    const list = products.filter((p) => p.category === category.value);
+    item.innerHTML = '';
+    item.add(new Option(category.value ? 'Search or select an item' : 'Choose a category first', '', true, true));
+    list.forEach((p) => { const o = new Option(p.name, p.id); o.dataset.sub = 'per ' + p.unit; o.dataset.unit = p.unit; item.add(o); });
+    if (category.value) { const o = new Option('Other item…', 'new'); o.dataset.sub = 'type it in'; item.add(o); }
+    item.disabled = !category.value;
+    if (keep) item.value = String(keep);
+    itemBox.refresh();
+    showOther();
+  }
+
+  function showOther() {
+    other.hidden = item.value !== 'new';
+    otherName.required = item.value === 'new';
+  }
+
+  category.addEventListener('change', () => fillItems(null));
+  item.addEventListener('change', () => {
+    showOther();
+    if (item.value === 'new') { otherName.focus(); return; }
+    const o = item.selectedOptions[0];
+    if (o && o.dataset.unit) unit.value = o.dataset.unit;
+  });
+
+  document.getElementById('listingForm').addEventListener('submit', (e) => {
+    if (!category.value) { e.preventDefault(); catBox.showAlert('Please choose a Category.'); catBox.attention(); }
+    else if (!item.value) { e.preventDefault(); itemBox.showAlert('Please choose an item.'); itemBox.attention(); }
+  });
+
+  if (category.value) fillItems(startItem);
 })();
 </script>
 {% endblock %}

@@ -68,13 +68,6 @@
   </a>
 </div>
 
-<h5 class="page-title sm">Needs Attention</h5>
-<div class="pw-card tint">
-  {% for l in needs_attention %}
-  <div class="row-line"><span>{{ l.name }}</span>{{ status_pill(l.stock_status) }}</div>
-  {% else %}<div class="text-muted text-center">All listings are in stock.</div>{% endfor %}
-</div>
-
 <h5 class="page-title sm">Latest Feedback</h5>
 <div class="pw-card tint">
   {% for r in reviews %}

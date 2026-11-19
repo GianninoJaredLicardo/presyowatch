@@ -42,7 +42,7 @@ def price_search():
 
     for l in Listing.all():
         vendor = vendors.get(l.vendor_id)
-        if vendor is None or vendor.vendor_status == "suspended" or l.stock_status == "out_of_stock":
+        if vendor is None or vendor.vendor_status == "suspended":
             continue
         market = markets.get(vendor.market_id)
         results.append({

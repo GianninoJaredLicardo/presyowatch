@@ -16,7 +16,6 @@ from utils.spike_detection import create_report
 bp = Blueprint("vendor", __name__)
 vendor_only = role_required("vendor")
 
-STOCK = ("in_stock", "low_stock", "out_of_stock")
 
 
 def _my_listings():
@@ -65,7 +64,6 @@ def dashboard():
     return render_template(
         "vendor_dashboard.html",
         listings=listings,
-        needs_attention=[l for l in listings if l.stock_status != "in_stock"],
         dti_notices=dti_notices,
         flagged_items=[l for l in listings if l.is_price_flagged],
         # LGU price warnings from Flagged Vendors; one clears once the vendor updates that listing.
@@ -91,9 +89,9 @@ def listings():
 def download_template():
     output = io.StringIO()
     writer = csv.writer(output)
-    writer.writerow(["Item Name", "Category", "Price", "Unit", "Stock Status"])
-    writer.writerow(["White Rice", "Grains", "52.00", "kg", "in_stock"])
-    writer.writerow(["Red Onion", "Vegetables", "120.00", "kg", "low_stock"])
+    writer.writerow(["Item Name", "Category", "Price", "Unit"])
+    writer.writerow(["Premium Rice", "Rice & Corn", "52.00", "kg"])
+    writer.writerow(["Red Onion (Sibuyas Pula)", "Spices", "120.00", "kg"])
     
     response = Response(output.getvalue(), mimetype="text/csv")
     response.headers["Content-Disposition"] = "attachment; filename=presyowatch_listing_template.csv"
@@ -124,6 +122,7 @@ def import_listings():
     imported = 0
     try:
         for r in rows:
+            r["stock_status"] = "in_stock"  # stock is no longer tracked
             Listing(vendor_id=current_user.user_id, updated_at=datetime.utcnow(), **r).save()
             imported += 1
     except Exception:
@@ -150,37 +149,30 @@ def _plural(n, word):
 @vendor_only
 def listing_form(listing_id=None):
     listing = _own_listing(listing_id) if listing_id else None
-    products = sorted(Product.all(), key=lambda p: p.product_name)
+    products = sorted(Product.all(), key=lambda p: p.product_name.lower())
 
     if request.method == "POST":
-        name = request.form.get("name", "").strip()
         price = request.form.get("price", type=float)
-        category = request.form.get("category", "General").strip() or "General"
-        unit = request.form.get("unit", "kg").strip() or "kg"
-        stock = request.form.get("stock_status", "in_stock")
-        
-        # Commodity: chosen from the list (product_id), or typed in when it isn't listed ("new").
+        category = request.form.get("category", "").strip()[:50]
+        unit = request.form.get("unit", "kg").strip()[:20] or "kg"
         choice = request.form.get("product_choice", "")
-        product_name_input = request.form.get("product_name", "").strip() if choice == "new" else ""
-        product_id = None
-        if choice.isdigit():
-            picked = Product.get(int(choice))
-            product_id = picked.product_id if picked else None
 
-        if product_name_input:
-            # Find existing product (case-insensitive)
-            existing_product = next((p for p in products if p.product_name.lower() == product_name_input.lower()), None)
-            if existing_product:
-                product_id = existing_product.product_id
-            else:
-                # Create a new product if it doesn't exist
-                new_product = Product(product_name=product_name_input, unit="kg", category="General")
-                new_product.save()
-                product_id = new_product.product_id
+        # Item: one of the registered commodities, or typed in ("new") when it isn't listed.
+        product = Product.get(int(choice)) if choice.isdigit() else None
+        if product is not None:
+            name = product.product_name
+        elif choice == "new":
+            name = request.form.get("name", "").strip()[:100]
+            product = next((p for p in products if p.product_name.lower() == name.lower()), None) if name else None
+            if product is None and name:
+                product = Product(product_name=name, unit=unit, category=category or "Other").save()
+        else:
+            name = ""
 
-        if not name or price is None or not price > 0 or stock not in STOCK:
-            flash("Name and a valid price are required.", "danger")
+        if not category or not name or price is None or not price > 0:
+            flash("Choose a category and an item, and enter a valid price.", "danger")
             return redirect(request.url)
+        product_id = product.product_id if product else None
 
         if listing is None:
             listing = Listing(vendor_id=current_user.user_id, price=price)
@@ -192,8 +184,8 @@ def listing_form(listing_id=None):
         listing.name = name
         listing.category = category
         listing.unit = unit
-        listing.stock_status = stock
-        listing.product_id = product_id  # Save the linked product ID
+        listing.stock_status = "in_stock"  # stock is no longer tracked
+        listing.product_id = product_id
         listing.updated_at = datetime.utcnow()
         listing.save()
 
@@ -208,22 +200,37 @@ def listing_form(listing_id=None):
         if product_id and new_price is None:
             refresh_rules_for_product(product_id)
         log_action(current_user, "listing_saved", name)
-        flash("Listing saved.", "success")
+        flash(f"{name} saved.", "success")
         return redirect(url_for("vendor.listings"))
 
-    # Get the current product name for the input field if editing
-    current_product_name = ""
-    if listing and listing.product_id:
-        p = Product.get(listing.product_id)
-        if p: current_product_name = p.product_name
+    # Registered categories (the common list first), each with its registered items.
+    def label(c):
+        c = (c or "").strip()
+        if c.lower() in ("", "other", "others", "general", "misc"):
+            return "Other"
+        return c if c in CATEGORIES else c.title()
 
-    by_category = {}
-    order = {c: i for i, c in enumerate(CATEGORIES)}
+    counts = {}
     for p in products:
-        by_category.setdefault(p.category or "Other", []).append(p)
-    grouped = sorted(by_category.items(), key=lambda kv: (order.get(kv[0], 99), kv[0].lower()))
-    return render_template("listing_form.html", listing=listing, products=products, grouped=grouped,
-                           categories=CATEGORIES, current_product_name=current_product_name)
+        counts[label(p.category)] = counts.get(label(p.category), 0) + 1
+    counts.setdefault("Other", 0)
+    order = {c: i for i, c in enumerate(CATEGORIES)}
+    category_options = [{"name": c, "count": n} for c, n in
+                        sorted(counts.items(), key=lambda kv: (order.get(kv[0], 98 if kv[0] != "Other" else 99), kv[0].lower()))]
+    product_options = [{"id": p.product_id, "name": p.product_name, "unit": p.unit or "kg", "category": label(p.category)}
+                       for p in products]
+
+    selected_category, selected_item = "", None
+    if listing:
+        linked = Product.get(listing.product_id) if listing.product_id else None
+        if linked:
+            selected_category, selected_item = label(linked.category), linked.product_id
+        else:
+            cat = label(listing.category)
+            selected_category, selected_item = (cat if cat in counts else "Other"), "new"
+    return render_template("listing_form.html", listing=listing, category_options=category_options,
+                           product_options=product_options, selected_category=selected_category,
+                           selected_item=selected_item)
 
 
 @bp.route("/listings/<int:listing_id>/delete", methods=["POST"])

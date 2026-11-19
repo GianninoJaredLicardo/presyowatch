@@ -41,7 +41,6 @@
   <div class="d-flex justify-content-between align-items-center mt-2">
     <span class="price fs-5">₱{{ l.price|peso }}/{{ l.unit }}</span>
     <div class="d-flex gap-2 align-items-center">
-      {{ status_pill(l.stock_status) }}
       <form method="POST" action="{{ url_for('vendor.delete_listing', listing_id=l.listing_id) }}" onsubmit="return confirm('Remove this listing?')">
         <button class="pill red border-0" title="Remove">X</button>
       </form>
