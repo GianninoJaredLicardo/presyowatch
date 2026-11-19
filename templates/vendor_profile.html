@@ -46,7 +46,11 @@
     <a class="btn-pw-outline" href="javascript:window.print()">Print</a>
   </div>
   <span class="pill gray" style="padding:8px 22px">{{ scans }} scans this week</span>
-  <div class="mt-3"><a class="small" href="{{ url_for('public.vendor_page', vendor_id=u.user_id) }}">Preview my public page &rarr;</a></div>
+  <a class="preview-link" href="{{ url_for('public.vendor_page', vendor_id=u.user_id) }}">
+    <span class="preview-link-icon"><i class="fa-regular fa-eye"></i></span>
+    <span class="preview-link-text"><b>Preview my public page</b><small>See what shoppers see when they scan</small></span>
+    <i class="fa-solid fa-arrow-right preview-link-go"></i>
+  </a>
 </div>
 
 <div class="pw-card position-relative">
