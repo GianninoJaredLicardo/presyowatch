@@ -7,6 +7,7 @@ from flask_login import current_user
 
 from models import DtiNotice, Listing, Market, Product, Review, ScanEvent
 from utils.helpers import log_action, refresh_rules_for_product, role_required, vendor_stats
+from utils.commodities import CATEGORIES
 from utils.csv_import import parse_listing_file
 from utils.notifications import notify, settle_dti_notices
 from utils.qr_generator import is_local_network_url, public_base_url, vendor_qr_url
@@ -158,9 +159,13 @@ def listing_form(listing_id=None):
         unit = request.form.get("unit", "kg").strip() or "kg"
         stock = request.form.get("stock_status", "in_stock")
         
-        # NEW: Handle the searchable commodity input
-        product_name_input = request.form.get("product_name", "").strip()
+        # Commodity: chosen from the list (product_id), or typed in when it isn't listed ("new").
+        choice = request.form.get("product_choice", "")
+        product_name_input = request.form.get("product_name", "").strip() if choice == "new" else ""
         product_id = None
+        if choice.isdigit():
+            picked = Product.get(int(choice))
+            product_id = picked.product_id if picked else None
 
         if product_name_input:
             # Find existing product (case-insensitive)
@@ -212,7 +217,13 @@ def listing_form(listing_id=None):
         p = Product.get(listing.product_id)
         if p: current_product_name = p.product_name
 
-    return render_template("listing_form.html", listing=listing, products=products, current_product_name=current_product_name)
+    by_category = {}
+    order = {c: i for i, c in enumerate(CATEGORIES)}
+    for p in products:
+        by_category.setdefault(p.category or "Other", []).append(p)
+    grouped = sorted(by_category.items(), key=lambda kv: (order.get(kv[0], 99), kv[0].lower()))
+    return render_template("listing_form.html", listing=listing, products=products, grouped=grouped,
+                           categories=CATEGORIES, current_product_name=current_product_name)
 
 
 @bp.route("/listings/<int:listing_id>/delete", methods=["POST"])

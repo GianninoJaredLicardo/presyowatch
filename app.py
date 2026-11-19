@@ -88,6 +88,11 @@ def create_app():
     app.register_blueprint(dti_bp, url_prefix="/dti")
     app.jinja_env.globals["file_url"] = file_url
 
+    # Pre-register common Philippine commodities so vendors can pick them from a list.
+    from utils.commodities import ensure_default_commodities
+    with app.app_context():
+        ensure_default_commodities()
+
     app.jinja_env.filters["timeago"] = timeago
     app.jinja_env.filters["localtime"] = localtime
     app.jinja_env.filters["peso"] = peso

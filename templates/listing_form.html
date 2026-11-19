@@ -7,23 +7,26 @@
 <form method="POST" class="pw-card">
 
   <div class="field">
-    <label class="form-label">Tracked commodity (optional)</label>
-    <!-- Searchable input for tracked commodity -->
-    <input 
-      class="input-pw" 
-      type="text" 
-      name="product_name" 
-      list="product-list" 
-      placeholder="Type to search or add a new commodity..."
-      value="{{ current_product_name if current_product_name else '' }}"
-    >
-    <datalist id="product-list">
-      {% for p in products %}
-        <option value="{{ p.product_name }}"></option>
+    <label class="form-label" for="commodity">Commodity</label>
+    <select class="input-pw" id="commodity" name="product_choice">
+      <option value="">Search a commodity (e.g. rice, galunggong, sibuyas)</option>
+      {% for cat, items in grouped %}
+      <optgroup label="{{ cat if cat in categories else cat|title }}">
+        {% for p in items %}
+        <option value="{{ p.product_id }}" data-unit="{{ p.unit or 'kg' }}" data-category="{{ p.category or '' }}"
+                data-sub="per {{ p.unit or 'kg' }}" {{ 'selected' if listing and listing.product_id == p.product_id }}>{{ p.product_name }}</option>
+        {% endfor %}
+      </optgroup>
       {% endfor %}
-    </datalist>
+      <optgroup label="Not on the list?">
+        <option value="new" data-sub="type it in">Other commodity…</option>
+      </optgroup>
+    </select>
+    <div class="field mt-2 mb-0" id="newCommodity" hidden>
+      <input class="input-pw" type="text" name="product_name" maxlength="100" placeholder="Name of the commodity">
+    </div>
     <div class="small-note mt-1">
-      Linking a tracked commodity lets your price be checked against the DTI SRP and market average.
+      Choosing a commodity lets your price be checked against the DTI SRP and market average.
     </div>
   </div>
 
@@ -32,6 +35,7 @@
     <input 
       class="input-pw" 
       name="name" 
+      id="itemName"
       value="{{ listing.name if listing else '' }}" 
       placeholder="e.g. White Rice (Dinorado)" 
       required 
@@ -45,10 +49,13 @@
       class="input-pw" 
       type="text" 
       name="category" 
+      id="category"
+      list="category-list"
       value="{{ listing.category if listing else '' }}" 
-      placeholder="e.g. Grains, Vegetables, Meat" 
+      placeholder="e.g. Vegetables" 
       maxlength="50"
     >
+    <datalist id="category-list">{% for c in categories %}<option value="{{ c }}"></option>{% endfor %}</datalist>
   </div>
 
   <div class="row g-2">
@@ -70,6 +77,7 @@
       <input 
         class="input-pw" 
         name="unit" 
+        id="unit"
         value="{{ listing.unit if listing else 'kg' }}"
       >
     </div>
@@ -89,4 +97,29 @@
 
 <a class="btn-pale btn-block" href="{{ url_for('vendor.listings') }}">Cancel</a>
 
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/combo.js') }}"></script>
+<script>
+(() => {
+  const select = document.getElementById('commodity');
+  const other = document.getElementById('newCommodity');
+  const name = document.getElementById('itemName');
+  const category = document.getElementById('category');
+  const unit = document.getElementById('unit');
+  PWCombo.enhance(select, { icon: 'fa-basket-shopping' });
+  let autoName = '';  // only replace the item name if the vendor hasn't typed their own
+
+  select.addEventListener('change', () => {
+    const o = select.selectedOptions[0];
+    other.hidden = select.value !== 'new';
+    if (select.value === 'new') { other.querySelector('input').focus(); return; }
+    if (!o || !o.value) return;
+    if (!name.value.trim() || name.value === autoName) { name.value = autoName = o.text; }
+    if (o.dataset.category) category.value = o.dataset.category;
+    if (o.dataset.unit) unit.value = o.dataset.unit;
+  });
+})();
+</script>
 {% endblock %}
