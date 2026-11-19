@@ -1,14 +1,37 @@
 {% extends "base.html" %}
-{% from "_ui.html" import avatar, verified %}
+{% from "_ui.html" import verified %}
 {% block title %}Vendor Profile — PresyoWatch{% endblock %}
 {% block content %}
 {% set u = nav_current_user %}
-<div class="pw-card text-center position-relative mt-3">
-  <a class="edit-btn" href="{{ url_for('auth.edit_account') }}"><i class="fa-regular fa-pen-to-square"></i></a>
-  {{ avatar(u.business_name or u.full_name) }}
-  <h5 style="font-weight:800">{{ u.business_name or u.full_name }}</h5>
-  {% if u.is_verified_vendor %}{{ verified() }}{% else %}<span class="pill pending">Verification pending</span>{% endif %}
-  <div class="small text-muted mt-3">{{ market.market_name if market else '' }}{% if u.business_address %}, {{ u.business_address }}{% endif %} · {{ u.city }}</div>
+<div class="pw-card store-card mt-3">
+  <div class="store-cover {{ 'has-photo' if u.cover_photo }}" id="storeCover"
+       {% if u.cover_photo %}style="background-image:url('{{ public_file_url(u.cover_photo) }}')"{% endif %}>
+    {% if not u.cover_photo %}
+    <label class="store-cover-empty" for="coverInput">
+      <i class="fa-solid fa-store"></i>
+      <b>Add a photo of your store</b>
+      <small>Shoppers see it on your stall page</small>
+    </label>
+    {% endif %}
+    <div class="store-cover-uploading" id="coverUploading" hidden><span class="notif-spin"></span> Uploading…</div>
+    <form method="POST" action="{{ url_for('vendor.upload_cover') }}" enctype="multipart/form-data" id="coverForm" class="store-cover-actions">
+      <label class="store-cover-btn" for="coverInput"><i class="fa-solid fa-camera"></i> {{ 'Change photo' if u.cover_photo else 'Upload photo' }}</label>
+      <input type="file" id="coverInput" name="cover_photo" accept="image/jpeg,image/png,image/webp" hidden>
+    </form>
+    {% if u.cover_photo %}
+    <form method="POST" action="{{ url_for('vendor.remove_cover') }}" class="store-cover-remove"
+          onsubmit="return confirm('Remove your store photo?')">
+      <button type="submit" class="store-cover-btn icon" aria-label="Remove photo" title="Remove photo"><i class="fa-solid fa-trash-can"></i></button>
+    </form>
+    {% endif %}
+  </div>
+  <div class="store-info">
+    <a class="edit-btn" href="{{ url_for('auth.edit_account') }}" aria-label="Edit profile"><i class="fa-regular fa-pen-to-square"></i></a>
+    <div class="store-avatar">{{ ((u.business_name or u.full_name or '?')[:1])|upper }}</div>
+    <h5>{{ u.business_name or u.full_name }}</h5>
+    {% if u.is_verified_vendor %}{{ verified() }}{% else %}<span class="pill pending">Verification pending</span>{% endif %}
+    <div class="small text-muted mt-2"><i class="fa-solid fa-location-dot"></i> {{ [market.market_name if market else none, u.business_address, u.city]|select|join(' · ') or 'No location yet' }}</div>
+  </div>
 </div>
 
 <div class="pw-card text-center">
@@ -35,4 +58,24 @@
 
 <a class="btn-pale btn-block mb-3" href="{{ url_for('auth.change_password') }}">Change Password</a>
 <a class="btn-logout" href="{{ url_for('auth.logout') }}">Log out</a>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(() => {
+  const input = document.getElementById('coverInput');
+  const cover = document.getElementById('storeCover');
+  input.addEventListener('change', () => {
+    const f = input.files[0];
+    if (!f) return;
+    if (f.size > 5 * 1024 * 1024) { alert('That photo is larger than 5 MB. Please choose a smaller one.'); input.value = ''; return; }
+    // Show the new photo right away while it uploads.
+    cover.style.backgroundImage = 'url(' + URL.createObjectURL(f) + ')';
+    cover.classList.add('has-photo', 'is-uploading');
+    const empty = cover.querySelector('.store-cover-empty'); if (empty) empty.remove();
+    document.getElementById('coverUploading').hidden = false;
+    document.getElementById('coverForm').submit();
+  });
+})();
+</script>
 {% endblock %}

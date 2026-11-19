@@ -74,7 +74,7 @@ def create_app():
     from routes.files import bp as files_bp
     from routes.payments import bp as payments_bp
     from routes.dti import bp as dti_bp
-    from utils.file_store import file_url
+    from utils.file_store import file_url, public_file_url
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(public_bp)
@@ -87,6 +87,13 @@ def create_app():
     app.register_blueprint(payments_bp, url_prefix="/payments")
     app.register_blueprint(dti_bp, url_prefix="/dti")
     app.jinja_env.globals["file_url"] = file_url
+    app.jinja_env.globals["public_file_url"] = public_file_url
+
+    @app.errorhandler(413)
+    def _too_large(_e):
+        from flask import flash, redirect
+        flash("That file is too large. Please choose a photo under 5 MB.", "danger")
+        return redirect(request.referrer or "/", code=303)
 
     # Pre-register common Philippine commodities so vendors can pick them from a list.
     from utils.commodities import ensure_default_commodities

@@ -7,6 +7,7 @@ from flask_login import current_user
 
 from models import DtiNotice, Listing, Market, Product, Review, ScanEvent
 from utils.helpers import log_action, refresh_rules_for_product, role_required, vendor_stats
+from utils import file_store
 from utils.commodities import CATEGORIES
 from utils.csv_import import parse_listing_file
 from utils.notifications import notify, settle_dti_notices
@@ -318,6 +319,40 @@ def flag_review(review_id):
         review.save()
         flash("Review flagged for LGU moderation.", "info")
     return redirect(url_for("vendor.feedback"))
+
+
+@bp.route("/profile/cover", methods=["POST"])
+@vendor_only
+def upload_cover():
+    photo = request.files.get("cover_photo")
+    if not photo or not photo.filename:
+        flash("Please choose a photo of your store.", "danger")
+        return redirect(url_for("vendor.profile"))
+    try:
+        ref = file_store.save_photo(photo, owner_id=current_user.user_id, kind="store_cover", max_side=1600)
+    except file_store.InvalidImage:
+        flash("That file isn't a valid image. Please choose a JPG or PNG photo.", "danger")
+        return redirect(url_for("vendor.profile"))
+    old = current_user.cover_photo
+    current_user.cover_photo = ref
+    current_user.save()
+    if file_store.is_stored(old):
+        file_store.delete(old)  # don't keep replaced photos around
+    log_action(current_user, "cover_photo_updated")
+    flash("Store photo updated. Shoppers will see it on your stall page.", "success")
+    return redirect(url_for("vendor.profile"))
+
+
+@bp.route("/profile/cover/remove", methods=["POST"])
+@vendor_only
+def remove_cover():
+    old = current_user.cover_photo
+    current_user.cover_photo = None
+    current_user.save()
+    if file_store.is_stored(old):
+        file_store.delete(old)
+    flash("Store photo removed.", "info")
+    return redirect(url_for("vendor.profile"))
 
 
 @bp.route("/profile")

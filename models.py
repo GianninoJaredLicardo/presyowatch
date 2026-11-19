@@ -163,7 +163,8 @@ class User(UserMixin, Model):
         "org_name": None,
         "division": None,
         "contact_person": None,
-        "profile_pic": None,             # NEW — path to profile picture
+        "profile_pic": None,
+        "cover_photo": None,             # vendor's store photo, shown on their profile and public page             # NEW — path to profile picture
         "application_status": None,      # pending | approved | rejected (LGU / DTI-DA sign-ups only)
         # Resident "Recent Activity" feed: items before activity_cleared_at are hidden ("Clear all"),
         # plus individually dismissed item keys (capped; emptied on every "Clear all").

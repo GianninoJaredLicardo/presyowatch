@@ -105,6 +105,17 @@ def delete(ref):
     batch.commit()
 
 
+# Kinds of images anyone may see without logging in (shoppers scanning a stall's QR code).
+PUBLIC_KINDS = {"store_cover"}
+
+
+def public_file_url(ref):
+    """URL for an image in PUBLIC_KINDS that works for visitors who aren't logged in."""
+    if not is_stored(ref):
+        return ""
+    return url_for("files.public", file_id=ref[len(PREFIX):])
+
+
 def file_url(ref, legacy_prefix=""):
     """URL for an image/file reference: Firestore-stored or a legacy file under /static."""
     if not ref:
